@@ -1,0 +1,6 @@
+Pipfile
+Pipfile.lock
+.hidden
+.vscode
+
+.__pycache__
