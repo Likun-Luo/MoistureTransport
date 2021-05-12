@@ -1,0 +1,27 @@
+# .style.yapf
+#
+# DESCRIPTION
+#     Configuration file for the python formatter yapf.
+#
+#     This configuration is based on the generic
+#     configuration published on GitHub.
+#
+# AUTHOR
+#     GenosW
+#
+# VERSION
+#     1.0
+#
+# SEE ALSO
+#     https://github.com/google/yapf
+#     https://github.com/google/yapf#knobs
+#
+
+
+[style]
+
+[yapf]
+based_on_style = google
+indent_width = 4
+spaces_before_comment = 2
+split_before_logical_operator = true
