@@ -1,13 +1,32 @@
 #!/usr/bin/env python3
 """Module for input parsing of a Simulation configuration file.
 
+<one line to give the program's name and a brief idea of what it does.>
+    Copyright (C) 2021  Holzner, Peter & Luo, Likun
+
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
 """
+# STL imports
 import json
 import pathlib
-import yaml
-from numpy import inf
 from dataclasses import dataclass, field, asdict
 from typing import Union
+# 3rd party imports
+import yaml
+from numpy import inf
+# interal imports
 
 number = [int, float]
 
@@ -37,6 +56,7 @@ class SettingsSchema:
 
     def __getitem__(self, item):
         return self.__getattribute__(item)
+
 
 @dataclass
 class BaseParser:
@@ -74,10 +94,13 @@ class BaseParser:
                 continue
             assert param in cfg
             if schema[param][0] in (number, int, float):
-                assert schema[param][1][0] <= cfg[param] <= schema[param][1][1], f"OOB: {param}={cfg[param]} is out-of-bounds. {schema[param][1][0]} <= {cfg[param]} <= {schema[param][1][1]}"
+                assert schema[param][1][0] <= cfg[param] <= schema[param][1][
+                    1], f"OOB: {param}={cfg[param]} is out-of-bounds. {schema[param][1][0]} <= {cfg[param]} <= {schema[param][1][1]}"
             else:
-                assert cfg[param] in schema[param][1], f"Key: {cfg[param]} not found. Should be one of {schema[param][1]}"
+                assert cfg[param] in schema[param][
+                    1], f"Key: {cfg[param]} not found. Should be one of {schema[param][1]}"
         return cfg
+
 
 class JSONParser(BaseParser):
     """Parses a configuration file in json format to Simulation format.
@@ -89,6 +112,7 @@ class JSONParser(BaseParser):
         with open(self.path, "r") as file:
             cfg = json.load(file)
         return cfg
+
 
 class YAMLParser(BaseParser):
     """Parses a configuration file in YAML format to Simulation format.
@@ -133,3 +157,5 @@ if __name__ == "__main__":
         print("YAMLParser: [SUCCESS]")
     else:
         print("YAMLParser: [FAILURE]")
+
+DefaultParser = JSONParser
