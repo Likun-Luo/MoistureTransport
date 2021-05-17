@@ -75,7 +75,7 @@ class Simulation:
             K_w ... total moisture conductivity Kw
         """
 
-        const = (self.w(P_suc) / self.freeSat)**self.n #reuse data
+        const = (self.w(P_suc) / self.freeSat)**self.n  #reuse data
 
         return -self.dw(P_suc) * ((self.n + 1) / (2 * self.n)) * (self.A / self.freeSat)**2 * \
             const * (self.n + 1 - const)
@@ -85,13 +85,13 @@ class Simulation:
 
         stimmt nicht ganz
         """
-        P_suc = np.linspace(0,1e9,100000)
+        P_suc = np.linspace(0, 1e9, 100000)
         w = self.K_w(P_suc)
-        plt.plot(P_suc,w)
+        plt.plot(P_suc, w)
         plt.xscale('log')
         plt.yscale('log')
         plt.show()
-    
+
     def printParams(self):
         print("Moisture uptake coefficient :", self.PoreSize)
 
