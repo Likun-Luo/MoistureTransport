@@ -43,9 +43,9 @@ def draw_placeholder(P_suc, w):
     plt.xscale('log')
     plt.yscale('log')
 
-    plt.title("P_suc(w)")
+    plt.title("Kw(P_suc)")
 
     plt.xlabel("P_suc")
-    plt.ylabel("w")
+    plt.ylabel("Kw")
 
     plt.show()

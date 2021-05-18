@@ -27,7 +27,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm, trange
 # interal imports
-from .process import draw_Placeholder
+from .process import draw_placeholder
 
 # These are example parameters
 # All caps name to signal it's a constant (or should be treated as such),
@@ -60,15 +60,15 @@ class Simulation:
         # 
         # In the config file, these naming conventions are fine,
         # but maybe we should also do it like that there.
-        self.A = sim_params["moistureUptakeCoefficient"]
-        self.L = sim_params["sampleLength"]
+        self.moisture_uptake_coefficient = sim_params["moistureUptakeCoefficient"]
+        self.length = sim_params["sampleLength"]
         # also, it's not good style to use abbreviations due to
         # usually being harder to understand for people other than you.
         #   free_sat --> free_saturation
         # Code completion is a standard feature in every editor for a reason ;)
-        self.free_sat = sim_params["freeSaturation"]
+        self.free_saturation = sim_params["freeSaturation"]
         self.pore_size = sim_params["meanPoreSize"]
-        self.n = sim_params["freeParameter"]
+        self.free_parameter = sim_params["freeParameter"]
 
     def w(self, P_suc):
         """water retention curve
@@ -80,7 +80,7 @@ class Simulation:
             w ... liquid moisture content
         """
 
-        return self.free_sat / (1.0 + self.pore_size * P_suc)
+        return self.free_saturation / (1.0 + self.pore_size * P_suc)
 
     def P_suc(self, w):
         """Inverse of water retention curve
@@ -96,7 +96,7 @@ class Simulation:
         """
 
         if w != 0:
-            return (self.free_sat - w) / (self.pore_size * w)
+            return (self.free_saturation - w) / (self.pore_size * w)
         print(f"Error: {w}==0 --> division by zero!")
         # Just raise a built in Error here instead!
         raise ValueError(f"Error: {w} division by zero")
@@ -112,7 +112,7 @@ class Simulation:
         Returns:
             dw ... derivative of w(P_suc) d w(P_suc)/d P_suc
         """
-        return -self.free_sat * self.pore_size / (self.pore_size * P_suc + 1.0)**2
+        return -self.free_saturation * self.pore_size / (self.pore_size * P_suc + 1.0)**2
 
     def K_w(self, P_suc):
         """total moisture conductivity Kw
@@ -124,10 +124,10 @@ class Simulation:
             K_w ... total moisture conductivity Kw
         """
 
-        const = (self.w(P_suc) / self.free_sat)**self.n  #reuse data
+        const = (self.w(P_suc) / self.free_saturation)**self.free_parameter  #reuse data
 
-        return -self.dw(P_suc) * ((self.n + 1) / (2 * self.n)) * (self.A / self.free_sat)**2 * \
-            const * (self.n + 1 - const)
+        return -self.dw(P_suc) * ((self.free_parameter + 1) / (2 * self.free_parameter)) * (self.moisture_uptake_coefficient / self.free_saturation)**2 * \
+            const * (self.free_parameter + 1 - const)
 
     # All method and function names should be lower case!
     # To be precise: snake_case_style
@@ -140,10 +140,10 @@ class Simulation:
         stimmt nicht ganz
         """
         P_suc = np.linspace(0, 1e9, 100000)
-        w = self.K_w(P_suc)
+        Kw = self.K_w(P_suc)
         # Ideally, we would do all plotting in process.py.
         # Might turn out to be not feasible or clunky though!
-        draw_placeholder(P_suc, w) 
+        draw_placeholder(P_suc, Kw) 
 
     def iterate(self):
         """run the simulation
