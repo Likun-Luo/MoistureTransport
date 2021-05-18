@@ -1,4 +1,5 @@
-Total: 2h (as of 17.5)
+Total: 7h (as of 17.5)
 
 Date,       Weekday,    from  - to,     time delta
 12.5.21,    Wed,        18:00 - 20:00,  2h
+18.5.21,    Tue,        18:30 - 23:30   5h
