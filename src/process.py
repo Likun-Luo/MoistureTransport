@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 # interal imports
 
 
-def draw_placeholder(P_suc, w):
+def draw_placeholder(P_suc, w, title="Kw(P_suc)"):
     """compare the curve with literature
 
     stimmt nicht ganz
@@ -43,9 +43,30 @@ def draw_placeholder(P_suc, w):
     plt.xscale('log')
     plt.yscale('log')
 
-    plt.title("Kw(P_suc)")
+    plt.title(title)
 
     plt.xlabel("P_suc")
     plt.ylabel("Kw")
 
+    plt.show()
+
+def draw_watercontent(w, t):
+    """compare the curve with literature
+
+    stimmt nicht ganz
+    """
+
+    fig, ax = plt.subplots(1,2, figsize=(8,6))
+
+    ax[0].plot(t, w)
+    ax[0].set_xlabel("t [s]")
+
+    ax[1].plot(np.sqrt(t), w)
+    ax[1].set_xlabel("sqrt(t) [sqrt(h)]")
+
+    # Plot design
+    for a in ax:
+        a.set_ylabel("w [%]")
+        a.grid(True)
+    plt.suptitle("Water content coefficient over time")
     plt.show()

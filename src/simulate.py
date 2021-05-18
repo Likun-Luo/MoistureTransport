@@ -29,9 +29,6 @@ from tqdm import tqdm, trange
 # interal imports
 from .process import draw_placeholder
 
-# These are example parameters
-# All caps name to signal it's a constant (or should be treated as such),
-# and so its not confused with the constructor argument.
 SIM_PARAMS_EXAMPLE = {
     "material": "brick",
     "sampleLength": 0.2,
@@ -45,27 +42,11 @@ SIM_PARAMS_EXAMPLE = {
     "Anfangsfeuchte": 40
 }
 
-# Classes should be named in upper camel case (MyExampleClass)...so this is fine
 class Simulation:
 
     def __init__(self, sim_params):
-        # You're using C-naming style.
-        # Variables "should" all be lower case (snake_case_style) --> PEP8
-        # I don't always conform to that either, e.g. matrices are often 
-        # called A and then it can be nice to name the variable the same
-        # ... technically, that isn't PEP8 though!
-        # We "should" rename them like this
-        #   A --> moisture_uptake_coefficient
-        #   L --> sample_length / length
-        # 
-        # In the config file, these naming conventions are fine,
-        # but maybe we should also do it like that there.
         self.moisture_uptake_coefficient = sim_params["moistureUptakeCoefficient"]
         self.length = sim_params["sampleLength"]
-        # also, it's not good style to use abbreviations due to
-        # usually being harder to understand for people other than you.
-        #   free_sat --> free_saturation
-        # Code completion is a standard feature in every editor for a reason ;)
         self.free_saturation = sim_params["freeSaturation"]
         self.pore_size = sim_params["meanPoreSize"]
         self.free_parameter = sim_params["freeParameter"]
@@ -97,8 +78,6 @@ class Simulation:
 
         if w != 0:
             return (self.free_saturation - w) / (self.pore_size * w)
-        print(f"Error: {w}==0 --> division by zero!")
-        # Just raise a built in Error here instead!
         raise ValueError(f"Error: {w} division by zero")
 
     def dw(self, P_suc):
@@ -129,11 +108,6 @@ class Simulation:
         return -self.dw(P_suc) * ((self.free_parameter + 1) / (2 * self.free_parameter)) * (self.moisture_uptake_coefficient / self.free_saturation)**2 * \
             const * (self.free_parameter + 1 - const)
 
-    # All method and function names should be lower case!
-    # To be precise: snake_case_style
-    # Same goes for all attributes actually, though I'd be more lenient here.
-    # You know, matrices are often called A and then it can be nice to name
-    # the variable the same... technically, that isn't PEP8 though.
     def draw(self):
         """compare the curve with literature
 
@@ -141,11 +115,15 @@ class Simulation:
         """
         P_suc = np.linspace(0, 1e9, 100000)
         Kw = self.K_w(P_suc)
-        # Ideally, we would do all plotting in process.py.
-        # Might turn out to be not feasible or clunky though!
         draw_placeholder(P_suc, Kw) 
 
+    def runge_kutta(self):
+        pass
+
     def iterate(self):
+        self.run()
+
+    def run(self):
         """run the simulation
 
         Just a placeholder for now...mainly to show tqdm.
