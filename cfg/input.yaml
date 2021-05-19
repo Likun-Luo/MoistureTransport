@@ -1,5 +1,5 @@
 material: brick # comment
-length: { value: 10, scale: 1.e+3 } # scale in reference to m
+length: 10 # in m # could also be{ value: 10, scale: 1.e+3 } # scale in reference to m
 sampleLength: 0.2
 moistureUptakeCoefficient: 10.0
 freeSaturation: 300.0
@@ -9,3 +9,4 @@ numberofElements: 100
 timeStepSize: 0.01
 totalTime: 10
 Anfangsfeuchte: 40
+averagingMethod: "linear"

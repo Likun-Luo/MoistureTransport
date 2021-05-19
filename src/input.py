@@ -34,20 +34,22 @@ number = [int, float]
 @dataclass
 class SettingsSchema:
     # base material and geometry
-    material: tuple = (str, ["brick", "cement", "wood"])
-    sampleLength: tuple = (number, [1e-2, 1])  # in m, min=1cm
-    moistureUptakeCoefficient: tuple = (number, [1e-1, 1000])
-    freeSaturation: tuple = (number, [1, 1e6])
-    meanPoreSize: tuple = (number, [1e-9, 1e-1])
-    freeParameter: tuple = (number, [-inf, inf])
+    material: tuple = (str, ["brick", "cement", "wood"])  # 1
+    sampleLength: tuple = (number, [1e-2, 1])  # in m, min=1cm  # 2
+    moistureUptakeCoefficient: tuple = (number, [1e-1, 1000])  # 3
+    freeSaturation: tuple = (number, [1, 1e6])  # 4
+    meanPoreSize: tuple = (number, [1e-9, 1e-1])  # 5
+    freeParameter: tuple = (number, [-inf, inf])  # 6
     # boundary & initial conditions
-    Anfangsfeuchte: tuple = (number, [1e-2, 1000])
+    Anfangsfeuchte: tuple = (number, [1e-2, 1000])  # 7
     # simulation parameters
-    numberofElements: tuple = (int, [1, 1e3])
-    timeStepSize: tuple = (number, [1e-6, 1])
-    totalTime: tuple = (number, [1e-1, 1 * 24 * 3600])  # seconds, 3600s = 1h
+    numberofElements: tuple = (int, [1, 1e3])  # 8
+    timeStepSize: tuple = (number, [1e-6, 1])  # 9
+    totalTime: tuple = (number, [1e-1, 1 * 24 * 3600])  # 10
+    # seconds, 3600s = 1h
+    averagingMethod: tuple = (str, ["linear", "harmonic"])  # 11
     # number of settings
-    NUM_PARAMETERS: tuple = (int, [15, 15])
+    NUM_PARAMETERS: tuple = (int, [11, 11])
 
     def __iter__(self):
         dicte = asdict(self)

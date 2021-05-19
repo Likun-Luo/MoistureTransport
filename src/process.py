@@ -30,7 +30,7 @@ import matplotlib.pyplot as plt
 # interal imports
 
 
-def draw_placeholder(P_suc, w, title="Kw(P_suc)"):
+def draw_placeholder(P_suc, w, t=-1, title="Kw(P_suc)"):
     """compare the curve with literature
 
     stimmt nicht ganz
@@ -43,12 +43,15 @@ def draw_placeholder(P_suc, w, title="Kw(P_suc)"):
     plt.xscale('log')
     plt.yscale('log')
 
-    plt.title(title)
+    plt.suptitle(title)
+    if t:
+        plt.suptitle(f"t={t}")
 
     plt.xlabel("P_suc")
     plt.ylabel("Kw")
 
     plt.show()
+
 
 def draw_watercontent(w, t):
     """compare the curve with literature
@@ -56,7 +59,7 @@ def draw_watercontent(w, t):
     stimmt nicht ganz
     """
 
-    fig, ax = plt.subplots(1,2, figsize=(8,6))
+    fig, ax = plt.subplots(1, 2, figsize=(8, 6))
 
     ax[0].plot(t, w)
     ax[0].set_xlabel("t [s]")

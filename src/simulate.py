@@ -27,7 +27,11 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm, trange
 # interal imports
-from process import draw_placeholder
+## TODO: Remove before release
+if __name__ == "__main__":
+    from process import draw_placeholder, draw_watercontent
+else:
+    from .process import draw_placeholder, draw_watercontent
 
 SIM_PARAMS_EXAMPLE = {
     "material": "brick",
@@ -61,7 +65,10 @@ class Simulation:
         self.dx = self.length / self.number_of_element
         self.dt = sim_params["timeStepSize"]
         self.total_time = sim_params["totalTime"]
-        self.time_range = np.arange(0,sim_params["totalTime"]+self.dt,self.dt)
+        # Don't do it this way: wastes a lot of memory for large dt and totalTime
+        # Just generate this array as needed
+        self.time_range = np.arange(0, sim_params["totalTime"] + self.dt,
+                                    self.dt)
 
         self.w_control_volume = np.zeros(self.number_of_element + 2)
 
@@ -70,8 +77,11 @@ class Simulation:
         """
 
         self.w_control_volume[:] = self.initial_moisture_content / 100 * self.free_saturation
-        self.w_control_volume[0] = self.free_saturation
-        self.w_control_volume[self.number_of_element + 1] = self.w_control_volume[self.number_of_element]
+
+        self.w_control_volume[0] = self.free_saturation  # Left hand side
+        self.w_control_volume[self.number_of_element +
+                              1] = self.w_control_volume[
+                                  self.number_of_element]  # Right hand side
 
     def w(self, P_suc):
         """water retention curve
@@ -139,21 +149,19 @@ class Simulation:
             K_P ... nodal moisture conductivity at one node P
 
             K_W ... nodal moisture conductivity at the neighbour node W
+
+        Returns:
+            K_interface ... liquid conductivity at the interface
+
+        Raises:
+            ValueError ... averaging_method not one of [linear, harmonic]
         """
 
         if self.averaging_method == "linear":
             return (K_P + K_W) / 2
-        elif self.averaging_method == "harmonic":
+        if self.averaging_method == "harmonic":
             return 2 * K_W * K_P / (K_W + K_P)
-
-    def draw(self):
-        """compare the curve with literature
-
-        stimmt nicht ganz
-        """
-        P_suc = np.linspace(0, 1e9, 100000)
-        Kw = self.K_w(P_suc)
-        draw_placeholder(P_suc, Kw)
+        raise ValueError(f"averaging_method={self.averaging_method} not one of [linear, harmonic]!")
 
     def dwdt(self, w_P, index):
         """evaluate the right hand side of the governing equation (time derivative of w_P)
@@ -166,7 +174,8 @@ class Simulation:
         K_e = self.K_interface(self.K_w(P_suc_P), self.K_w(P_suc_E))
         K_w = self.K_interface(self.K_w(P_suc_P), self.K_w(P_suc_W))
 
-        dwdt = - K_e * (P_suc_E - P_suc_P) / self.dx**2 - K_w * (P_suc_W - P_suc_P) / self.dx**2
+        dwdt = -K_e * (P_suc_E - P_suc_P) / self.dx**2 - K_w * (
+            P_suc_W - P_suc_P) / self.dx**2
 
         return dwdt
 
@@ -174,7 +183,7 @@ class Simulation:
         """runge kutta method to calculate the moisture content at a specific control volume
         """
 
-        for index in range(1,self.number_of_element+1):
+        for index in range(1, self.number_of_element + 1):
 
             w_P = self.w_control_volume[index]
 
@@ -185,26 +194,43 @@ class Simulation:
 
             rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
-            if (rhs >= 1e-12):
-                self.w_control_volume[index] += rhs
-            else:
+            # if (rhs >= 1e-12):
+            #     self.w_control_volume[index] += rhs
+            # else:
+            #     break
+            # Same logic, but a bit faster AND imo easier to understand
+            if (rhs < 1e-12):
                 break
-     
-    
-    def total_moisture_prope(self, flag = "absolute"):
-        """calculate the total moisture of the prope
+            self.w_control_volume[index] += rhs
+
+    # Probe [ger] == sample [engl]
+    def total_moisture_sample(self, flag="absolute"):
+        """calculate the total moisture of the sample
         """
         w = 0
 
-        for i in range(1,self.number_of_element + 1):
-            w += self.w_control_volume[i] * self.dx
-        
+        # Index access is terribly slow in pyton
+        # for i in range(1,self.number_of_element + 1):
+        #     w += self.w_control_volume[i] * self.dx
+
+        # Iterate over the elements directly (faster):
+        # for item in self.number_of_element[1:]:
+        #     w += item * self.dx
+
+        # OR use the even faster list comprehension feature (even faster):
+        # Allows the interpreter to do some optimization...
+        # w = sum([self.dx*item for item in self.number_of_element[1:]])
+
+        # OR use numpy (FASTEST): --> C-Code
+        # Reasoning being that Python is slow and C is fast.
+        # (numpy is just compiled C-Code)
+        w = np.sum(self.dx * self.number_of_element[1:])
+
         if flag == "absolute":
             return w / self.length
         else:
             return 100 * w / (self.free_saturation * self.length)
 
-    
     def run_simulation(self):
 
         self.initial_condition()
@@ -213,39 +239,75 @@ class Simulation:
         self.w_total = []
 
         cnt = 0
-        
-        print("w = %.3f" % self.total_moisture_prope(flag="relative"))
 
-        for t in self.time_range:
+        print("w = %.3f" % self.total_moisture_sample(flag="relative"))
+
+        # Just use the generator expression here, so it doesn't use
+        # as much memory and is gone after the loop.
+        # In Python, how you loop makes a huge difference!
+        # Index access is fast in C/C++, but is the worst in Python!
+        #for t in self.time_range:
+        for t in np.arange(0, self.total_time + self.dt, self.dt):
 
             self.runge_kutta()
-            
+
             if cnt % 100 == 0:
                 self.t.append(t)
-                self.w_total.append(self.total_moisture_prope(flag="relative"))
+                self.w_total.append(self.total_moisture_sample(flag="relative"))
 
-            cnt +=1
-        
-            print("progress: %.2f / %d" % (t,self.total_time), end="\r")
+            cnt += 1
+            # I prefer the newer f-strings in python:
+            # print(f"progress: {t:.2f} / {self.total_time}", end="\r")
+            # but use whichever you prefer!
+            print("progress: %.2f / %d" % (t, self.total_time), end="\r")
 
         #print(self.w_control_volume)
-        
-        print("w = %.2f" % self.total_moisture_prope(flag="relative"))
 
-        title = "Number of elements = " + str(self.number_of_element) + ", time step = " + str(self.dt) + ", initial saturation = " + str(self.initial_moisture_content) + "%"
+        print("w = %.2f" % self.total_moisture_sample(flag="relative"))
 
-        plt.plot(self.t,self.w_total,label = "linear averaging")
+        title = "Number of elements = " + str(
+            self.number_of_element) + ", time step = " + str(
+                self.dt) + ", initial saturation = " + str(
+                    self.initial_moisture_content) + "%"
+        # f-string version (often shorter or at least as short):
+        #title = f"Number of elements = {self.number_of_element}, time step = {self.dt}, initial saturation = {self.initial_moisture_content}%"
+
+        # Make this a method (or function in process.py)
+        # --> Smaller blocks of code == easier to understand and maintain!
+        plt.plot(self.t, self.w_total, label="linear averaging")
         plt.title(title)
         plt.ylabel("saturation degree [%]")
         plt.xlabel("time [hours]")
         plt.legend()
         plt.show()
-        
+
     def iterate(self):
         self.run()
 
-    def run(self):
-        """run the simulation
+    def draw(self):
+        """compare the curve with literature
+
+        stimmt nicht ganz
+        """
+        P_suc = np.linspace(0, 1e9, 100000)
+        Kw = self.K_w(P_suc)
+        draw_placeholder(P_suc, Kw)
+
+    def draw_watercontent(self):
+        """watercontent
+
+        demo
+        """
+        t = np.arange(0, self.total_time, self.dt)
+
+        w = 10 * np.sqrt(t)
+        w_last = w[-1] * np.ones_like(w)
+        w = np.append(w, w_last)
+        t = np.arange(0, 2 * self.total_time, self.dt)
+        draw_watercontent(w, t)
+
+    def demo(self):
+        """demo the simulation
 
         Just a placeholder for now...mainly to show tqdm.
         TQDM Usage, see: https://github.com/tqdm/tqdm#usage
@@ -253,12 +315,12 @@ class Simulation:
         print("Running first sweep")
         for i in trange(10):
             sleep(0.1)
-        print("Running second sweep")
-        for i in tqdm(range(10)):
-            sleep(0.1)
+        # print("Running second sweep")
+        # for i in tqdm(range(10)):
+        #     sleep(0.1)
         print("Simulation done! (Wow...that was fast!)")
 
-    def printParams(self):
+    def print_params(self):
         print("Moisture uptake coefficient :", self.pore_size)
 
 
