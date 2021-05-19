@@ -36,10 +36,10 @@ SIM_PARAMS_EXAMPLE = {
     "freeSaturation": 300.0,
     "meanPoreSize": 1e-6,
     "freeParameter": 13,
-    "numberofElements": 100,
-    "timeStepSize": 0.0005,
+    "numberofElements": 20,
+    "timeStepSize": 0.00001,
     "totalTime": 10,
-    "Anfangsfeuchte": 40,
+    "Anfangsfeuchte": 1,
     "averagingMethod": "linear"
 }
 
@@ -156,7 +156,7 @@ class Simulation:
         draw_placeholder(P_suc, Kw)
 
     def dwdt(self, w_P, index):
-        """right hand side of the governing equation (time derivative of w_P)
+        """evaluate the right hand side of the governing equation (time derivative of w_P)
         """
 
         P_suc_P = self.P_suc(w_P)
@@ -170,21 +170,26 @@ class Simulation:
 
         return dwdt
 
-    def runge_kutta(self, index):
+    def runge_kutta(self):
         """runge kutta method to calculate the moisture content at a specific control volume
-
-        Parameters:
-            index ... index of the control volume
         """
 
-        w_P = self.w_control_volume[index]
+        for index in range(1,self.number_of_element+1):
 
-        k1 = self.dwdt(w_P, index)
-        k2 = self.dwdt((w_P + 0.5 * self.dt * k1), index)
-        k3 = self.dwdt((w_P + 0.5 * self.dt * k2), index)
-        k4 = self.dwdt((w_P + 1.0 * self.dt * k3), index)
+            w_P = self.w_control_volume[index]
 
-        self.w_control_volume[index] += self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+            k1 = self.dwdt(w_P, index)
+            k2 = self.dwdt((w_P + 0.5 * self.dt * k1), index)
+            k3 = self.dwdt((w_P + 0.5 * self.dt * k2), index)
+            k4 = self.dwdt((w_P + 1.0 * self.dt * k3), index)
+
+            rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+
+            if (rhs >= 1e-12):
+                self.w_control_volume[index] += rhs
+            else:
+                break
+     
     
     def total_moisture_prope(self, flag = "absolute"):
         """calculate the total moisture of the prope
@@ -198,23 +203,22 @@ class Simulation:
             return w / self.length
         else:
             return 100 * w / (self.free_saturation * self.length)
+
     
     def run_simulation(self):
 
         self.initial_condition()
-
-        #print(self.w_control_volume)
 
         self.t = []
         self.w_total = []
 
         cnt = 0
         
-        print("w = %.2f" % self.total_moisture_prope(flag="relative"))
+        print("w = %.3f" % self.total_moisture_prope(flag="relative"))
 
         for t in self.time_range:
-            for index in range(1,self.number_of_element + 1):
-                self.runge_kutta(index)
+
+            self.runge_kutta()
             
             if cnt % 100 == 0:
                 self.t.append(t)
