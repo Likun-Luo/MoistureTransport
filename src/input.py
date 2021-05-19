@@ -28,6 +28,7 @@ import yaml
 from numpy import inf
 # interal imports
 
+VALID_FILE_FORMATS = [".json", ".yaml", ".cfg"]
 number = [int, float]
 
 
@@ -72,9 +73,8 @@ class BaseParser:
         if isinstance(self.path, str):
             self.path = pathlib.Path(self.path).absolute()
 
-    def __call__(self, validate=False):
+    def __call__(self, validate=True):
         if validate:
-            #print("Validating input...")
             return self.validateCFG(self.parse())
         #print("Input validation is turned off.")
         return self.parse()

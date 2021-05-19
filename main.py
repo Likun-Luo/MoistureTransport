@@ -21,23 +21,65 @@ The main program file
 """
 # STL imports
 from argparse import ArgumentParser
+from pathlib import Path
 # 3rd party imports
 
 # interal imports
-from src.input import DefaultParser
+from src.input import DefaultParser, VALID_FILE_FORMATS
 from src.simulate import Simulation
 #from src.process import *
 
 SIM_VERSION = "0.1"
-
 argParser = ArgumentParser(prog=f"MoistureTransport Simulation v{SIM_VERSION}",
                            description="blabla",
                            prefix_chars="?")
 
-cfgParser = DefaultParser("./cfg/input.json")
-cfg = cfgParser()
 
+print("#################################")
+print("# Moisture Transport Simulation #")
+print("#################################")
+print()
+print("Version: ", SIM_VERSION)
+print("Authors: - HOLZNER, Peter")
+print("         - LUO, Likun")
+print()
+
+# Prompt for cfg file
+cfg_file_path = "./cfg/input.json"
+use_standard_cfg = None
+while True:
+    use_standard_cfg = input(f"Use the configuration file found at {cfg_file_path}? (y/N): ")
+
+    if use_standard_cfg == "":
+        print("User stopped: Simulation aborted...")
+        exit(1)
+
+    if use_standard_cfg in ["y", "Y"]:
+        break
+
+    if use_standard_cfg in ["n", "N"]:
+        alt_file = Path(input("Path to configuration file: "))
+        if alt_file.is_file():
+            if alt_file.suffix in VALID_FILE_FORMATS:
+                break
+            print(f"Provided file '{alt_file}' does not have a valid format: {VALID_FILE_FORMATS}!")
+        else:
+            print(f"Provided file '{alt_file}' isn't a file or can't be found!")
+
+    print("Invalid input. Please use either y or N!")
+# Cfg selected or aborted
+print()
+print("Parsing simulation configuration file...")
+cfgParser = DefaultParser(cfg_file_path)
+cfg = cfgParser()
+print("--> Parameters are valid!")
+print()
+
+print("------- STARTING SIMULATION -------")
 sim = Simulation(cfg)
+print(f"Simulating a time span of: ")
+
+exit(0)
 print("Drawing starting state")
 sim.draw()
 sim.demo()

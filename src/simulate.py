@@ -306,6 +306,7 @@ class Simulation:
         t = np.arange(0, 2 * self.total_time, self.dt)
         draw_watercontent(w, t)
 
+
     def demo(self):
         """demo the simulation
 
