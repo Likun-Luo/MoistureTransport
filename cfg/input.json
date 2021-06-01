@@ -5,9 +5,9 @@
 	"freeSaturation": 300.0,
 	"meanPoreSize": 10e-3,
 	"freeParameter": 10,
-	"numberofElements": 100,
-	"timeStepSize": 0.01,
+	"numberofElements": 30,
+	"timeStepSize": 0.0005,
 	"totalTime": 10,
-	"Anfangsfeuchte": 40,
+	"Anfangsfeuchte": 10,
 	"averagingMethod": "linear"
 }

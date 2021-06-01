@@ -102,7 +102,7 @@ else:
 cfg = cfgParser()
 print("--> Parameters are valid!")
 print()
-exit(0)
+#exit(0)
 ######################
 # --- Simulation --- #
 ######################
@@ -110,7 +110,7 @@ mode = args.mode
 print("mode: ", mode)
 print("------- STARTING SIMULATION -------")
 sim = Simulation(cfg)
-print(f"Simulating a time span of:{sim.tmax} ")
+print(f"Simulating a time span of:{sim.total_time} ")
 
 if mode == "demo":
     print("Drawing starting state")
@@ -122,7 +122,7 @@ if mode == "demo":
     #sim.draw()
     sim.draw_watercontent()
 else:
-    sim.run_simulation()
+    sim.simulation_test()
 
 print("------- SIMULATION DONE  -------")
 print("Results:")

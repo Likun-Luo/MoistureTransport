@@ -21,6 +21,7 @@
 """
 # STL imports
 import math
+from os import error
 from time import sleep
 # 3rd party imports
 import numpy as np
@@ -41,7 +42,7 @@ SIM_PARAMS_EXAMPLE = {
     "meanPoreSize": 1e-6,
     "freeParameter": 13,
     "numberofElements": 20,
-    "timeStepSize": 0.00001,
+    #"timeStepSize": 0.01,
     "totalTime": 10,
     "Anfangsfeuchte": 1,
     "averagingMethod": "linear"
@@ -62,11 +63,14 @@ class Simulation:
         self.averaging_method = sim_params["averagingMethod"]
 
         self.dx = self.length / self.number_of_element
-        self.dt = sim_params["timeStepSize"]
+        #self.dt = sim_params["timeStepSize"]
         self.total_time = sim_params["totalTime"]
         # Don't do it this way: wastes a lot of memory for large dt and totalTime
-        self.time_range = np.arange(0, sim_params["totalTime"] + self.dt,
-                                    self.dt)
+        #self.time_range = np.arange(0, sim_params["totalTime"] + self.dt,
+        #                            self.dt)
+
+        self.current_time = .0
+        self.dt_init = 1e-10
 
         self.w_control_volume = np.zeros(self.number_of_element + 2)
 
@@ -80,6 +84,7 @@ class Simulation:
         self.w_control_volume[self.number_of_element +
                               1] = self.w_control_volume[
                                   self.number_of_element]  # Right hand side
+        self.current_dt = self.dt_init
 
     def w(self, P_suc):
         """water retention curve
@@ -93,10 +98,11 @@ class Simulation:
         val = (1.0 + self.pore_size * P_suc)
 
         ret = self.free_saturation / val
-        if val < 1e-5:
-            print("val: ", val)
-            print("pore_size: ", self.pore_size)
-            print("P_suc: ", P_suc)
+
+        #if val < 1e-5:
+        #    print("val: ", val)
+        #    print("pore_size: ", self.pore_size)
+        #    print("P_suc: ", P_suc)
 
         return ret
 
@@ -211,6 +217,137 @@ class Simulation:
 
         return dwdt
 
+    def rk5(self):
+        """runge kutta 5 method with local error estimation
+        """
+
+        volume = self.w_control_volume
+
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+                       op_flags=['readwrite'],
+                       flags=["f_index"],
+                       order="C") as it:
+            for w_P_W, w_P, w_P_E in it:
+
+                k1 = self.dwdt(w_P, w_P_W, w_P_E)
+                k2 = self.dwdt((w_P + 0.25 * self.current_dt * k1), w_P_W,
+                               w_P_E)
+                k3 = self.dwdt((w_P + 4 * self.current_dt * k1 / 81 +
+                                32 * self.current_dt * k2 / 81), w_P_W, w_P_E)
+                k4 = self.dwdt((w_P + 57 * self.current_dt * k1 / 98 -
+                                432 * self.current_dt * k2 / 343 +
+                                1053 * self.current_dt * k3 / 686), w_P_W,
+                               w_P_E)
+                k5 = self.dwdt((w_P + 1 * self.current_dt * k1 / 6 +
+                                27 * self.current_dt * k3 / 52 +
+                                49 * self.current_dt * k4 / 156), w_P_W, w_P_E)
+
+                rhs = self.current_dt * (43 * k1 / 288 + 243 * k3 / 416 +
+                                         343 * k4 / 1872 + k5 / 12)
+
+                error = self.current_dt * (-5 * k1 / 288 + 27 * k3 / 416 -
+                                           245 * k4 / 1872 + k5 / 12)
+
+                if w_P + rhs > self.free_saturation or error > 1e-6:
+                    pass
+
+    def rk5_new(self, w_P_W, w_P, w_P_E):
+        """runge kutta 5 method with local error estimation
+        """
+
+        k1 = self.dwdt(w_P, w_P_W, w_P_E)
+        k2 = self.dwdt((w_P + 0.25 * self.current_dt * k1), w_P_W, w_P_E)
+        k3 = self.dwdt((w_P + 4 * self.current_dt * k1 / 81 +
+                        32 * self.current_dt * k2 / 81), w_P_W, w_P_E)
+        k4 = self.dwdt((w_P + 57 * self.current_dt * k1 / 98 -
+                        432 * self.current_dt * k2 / 343 +
+                        1053 * self.current_dt * k3 / 686), w_P_W, w_P_E)
+        k5 = self.dwdt(
+            (w_P + 1 * self.current_dt * k1 / 6 +
+             27 * self.current_dt * k3 / 52 + 49 * self.current_dt * k4 / 156),
+            w_P_W, w_P_E)
+
+        rhs = self.current_dt * (43 * k1 / 288 + 243 * k3 / 416 +
+                                 343 * k4 / 1872 + k5 / 12)
+
+        error = self.current_dt * (-5 * k1 / 288 + 27 * k3 / 416 -
+                                   245 * k4 / 1872 + k5 / 12)
+
+        return rhs, error
+
+    def simulation_test(self):
+
+        self.initial_condition()
+
+        self.t = []
+        self.w_total = []
+
+        cnt = 0
+
+        print("initial w = %.3f" % self.total_moisture_sample(flag="relative"), "%")
+        print("number of element: ",self.number_of_element)
+        print("initial timestep: ", self.current_dt)
+
+        while self.current_time < self.total_time:
+
+            valid = False
+
+            volume = self.w_control_volume
+
+            with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+                           op_flags=['readwrite'],
+                           flags=["f_index"],
+                           order="C") as it:
+                for w_P_W, w_P, w_P_E in it:
+                    rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
+                    if (w_P + rhs > self.free_saturation) or (error > 1e-6):
+                        valid = False
+                        self.current_dt /= 2
+                        break
+
+                    elif (rhs > 1e-12):
+                        w_P += rhs
+                        valid = True
+
+                    else:
+                        valid = True
+                        break
+
+            if valid:
+
+                if cnt % 100 == 0:
+                    self.t.append(self.current_time)
+                    self.w_total.append(
+                        self.total_moisture_sample(flag="relative"))
+
+                cnt += 1
+                self.current_time += self.current_dt
+                self.current_dt *= 2
+
+            print("Progress: %.2f / %d, current time step: %.2e s" %
+                  (self.current_time, self.total_time, self.current_dt),
+                  end="\r")
+
+        print("final time step: ", self.current_dt)
+        print("final w = %.3f" % self.total_moisture_sample(flag="relative"), "%")
+
+        title = "Number of elements = " + str(
+            self.number_of_element) + ",initial time step = " + str(
+                self.dt_init) + ",final time step = " + str(
+                    self.current_dt) + ", initial saturation = " + str(
+                        self.initial_moisture_content) + "%"
+        # f-string version (often shorter or at least as short):
+        #title = f"Number of elements = {self.number_of_element}, time step = {self.dt}, initial saturation = {self.initial_moisture_content}%"
+
+        # Make this a method (or function in process.py)
+        # --> Smaller blocks of code == easier to understand and maintain!
+        plt.plot(self.t, self.w_total, label="linear averaging")
+        plt.title(title)
+        plt.ylabel("saturation degree [%]")
+        plt.xlabel("time [hours]")
+        plt.legend()
+        plt.show()
+
     def runge_kutta(self):
         """runge kutta method to calculate the moisture content at a specific control volume
         """
@@ -266,7 +403,7 @@ class Simulation:
         # OR use numpy (FASTEST): --> C-Code
         # Reasoning being that Python is slow and C is fast.
         # (numpy is just compiled C-Code)
-        w = np.sum(self.dx * self.w_control_volume[1:])
+        w = np.sum(self.dx * self.w_control_volume[1:-1])
 
         if flag == "absolute":
             return w / self.length
@@ -368,4 +505,5 @@ class Simulation:
 
 if __name__ == "__main__":
     x = Simulation(SIM_PARAMS_EXAMPLE)
-    x.run_simulation()
+    #x.run_simulation()
+    x.simulation_test()
