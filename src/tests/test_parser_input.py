@@ -11,18 +11,18 @@ schema = SettingsSchema()
 VIABLE_FIELD_TYPES = [str, int, float]
 
 DEFAULT_CFG = {
-        "material": "brick",
-        "sampleLength": 0.2,
-        "moistureUptakeCoefficient": 10.0,
-        "freeSaturation": 300.0,
-        "meanPoreSize": 10e-6,
-        "freeParameter": 10,
-        "numberofElements": 100,
-        "timeStepSize": 0.01,
-        "totalTime": 10,
-        "Anfangsfeuchte": 40,
-	    "averagingMethod": "linear"
-    }
+    "material": "brick",
+    "sampleLength": 0.2,
+    "moistureUptakeCoefficient": 10.0,
+    "freeSaturation": 300.0,
+    "meanPoreSize": 10e-6,
+    "freeParameter": 10,
+    "numberofElements": 100,
+    "timeStepSize": 0.01,
+    "totalTime": 10,
+    "Anfangsfeuchte": 40,
+    "averagingMethod": "linear"
+}
 
 
 def manipulate_param(parameters, to_change, value):
@@ -76,6 +76,7 @@ def generate_faulty_range_input(parameters, key, value=None, test=False):
             f"{value} is not a valid value (should be of type str)!")
     raise ValueError(f"{ftype} not one of {VIABLE_FIELD_TYPES}!")
 
+
 def demo_generator_outputs():
     print("Testing generate_faulty_types(...):")
     display(generate_faulty_types(1, "material", test=True))
@@ -86,8 +87,10 @@ def demo_generator_outputs():
     display(generate_faulty_range_input(1, "sampleLength", test=True))
     display(generate_faulty_range_input(1, "numberofElements", test=True))
 
+
 # %%
 demo_generator_outputs()
+
 
 # %%
 def test_with_default_params(capsys):
@@ -104,11 +107,12 @@ def test_with_default_params(capsys):
     else:
         print("[FAILURE]")
 
+
 def test_with_faulty_parameter_types(capsys):
     """tests parser with (correct) default input.
     """
     print("Test: faulty inputs ", end="")
-    
+
     parser = JSONParser(TEST_FILE)
     correct_cfg = parser(validate=True)
 
@@ -116,13 +120,13 @@ def test_with_faulty_parameter_types(capsys):
     for key in correct_cfg:
         faulty_types = generate_faulty_types(correct_cfg, key)
         for ftype in faulty_types:
-            if ftype==int:
+            if ftype == int:
                 test_value = 1
-            if ftype==float:
+            if ftype == float:
                 test_value = 11.1
-            if ftype==number:
+            if ftype == number:
                 test_value = 99.9
-            if ftype==str:
+            if ftype == str:
                 test_value = "WaterIsWet"
             faulty_cfg = manipulate_param(correct_cfg, key, test_value)
             # with capsys.disabled():
@@ -130,7 +134,9 @@ def test_with_faulty_parameter_types(capsys):
             try:
                 JSONParser.validateCFG(faulty_cfg)
                 # We expect a TypeError to be raised
-                raise RuntimeError(f"No TypeErrors were raised --> Validation should've detected errors!")
+                raise RuntimeError(
+                    f"No TypeErrors were raised --> Validation should've detected errors!"
+                )
             except TypeError as e:
                 # We check for type error --> raised TypeError == Okay!
                 # This is the expected behavior.
@@ -138,7 +144,9 @@ def test_with_faulty_parameter_types(capsys):
                 #     print(e)
                 pass
             except e:
-                raise ValueError(f"Error '{e}' shouldn't appear here --> only TypeErrors are acceptable here!")
+                raise ValueError(
+                    f"Error '{e}' shouldn't appear here --> only TypeErrors are acceptable here!"
+                )
     #print("Parsed input is: ")
     #print(cfg)
     print("[SUCCESS]")

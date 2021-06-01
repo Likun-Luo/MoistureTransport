@@ -8,5 +8,6 @@
 	"numberofElements": 100,
 	"timeStepSize": 0.01,
 	"totalTime": 10,
-	"Anfangsfeuchte": 1e4
+	"Anfangsfeuchte": 1e4,
+	"averagingMethod": "blew"
 }

@@ -25,7 +25,8 @@ from pathlib import Path
 # 3rd party imports
 
 # interal imports
-from src.input import DefaultParser, VALID_FILE_FORMATS
+from src import *  # basic app configs - not simulation parameters!
+from src.input import DefaultParser, YAMLParser, VALID_FILE_FORMATS
 from src.simulate import Simulation
 #from src.process import *
 
@@ -56,7 +57,14 @@ args = argParser.parse_args()
 ######################
 
 # Prompt for cfg file
-cfg_file_path = args.cfg
+cfg_file_path = Path(args.cfg)
+if not cfg_file_path.is_file():
+    print(f"Provided file '{cfg_file_path}' isn't a file or can't be found!")
+if cfg_file_path.suffix not in VALID_FILE_FORMATS:
+    print(
+        f"Provided file '{cfg_file_path}' does not have a valid format: {VALID_FILE_FORMATS}!"
+    )
+
 use_standard_cfg = None
 while True:
     use_standard_cfg = input(
@@ -73,6 +81,7 @@ while True:
         alt_file = Path(input("Path to configuration file: "))
         if alt_file.is_file():
             if alt_file.suffix in VALID_FILE_FORMATS:
+                cfg_file_path = alt_file
                 break
             print(
                 f"Provided file '{alt_file}' does not have a valid format: {VALID_FILE_FORMATS}!"
@@ -81,14 +90,19 @@ while True:
             print(f"Provided file '{alt_file}' isn't a file or can't be found!")
 
     print("Invalid input. Please use either y or N!")
-# Cfg selected or aborted
+# Cfg selected
 print()
-print("Parsing simulation configuration file...")
-cfgParser = DefaultParser(cfg_file_path)
+print("Parsing selected simulation configuration file...")
+if cfg_file_path.suffix == ".json":
+    cfgParser = DefaultParser(cfg_file_path)
+elif cfg_file_path.suffix == ".yaml":
+    cfgParser = YAMLParser(cfg_file_path)
+else:
+    raise ValueError(f"{cfg_file_path.suffix} is not a valid file format!")
 cfg = cfgParser()
 print("--> Parameters are valid!")
 print()
-
+exit(0)
 ######################
 # --- Simulation --- #
 ######################
@@ -96,9 +110,7 @@ mode = args.mode
 print("mode: ", mode)
 print("------- STARTING SIMULATION -------")
 sim = Simulation(cfg)
-print(f"Simulating a time span of: ")
-
-#exit(0)
+print(f"Simulating a time span of:{sim.tmax} ")
 
 if mode == "demo":
     print("Drawing starting state")
@@ -117,4 +129,4 @@ print("Results:")
 print("\tA = 1")
 print("\tB = 1")
 print("\t...")
-print("Graphs and simulation report saved at: /path/to/results")
+print(f"Graphs and simulation report saved at: {RESULTS_DIR}")

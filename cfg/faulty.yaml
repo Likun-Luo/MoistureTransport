@@ -8,3 +8,4 @@ numberofElements: 100
 timeStepSize: 0.01
 totalTime: 10
 Anfangsfeuchte: 1.e+4
+averagingMethod: blew

@@ -98,24 +98,40 @@ class BaseParser:
                 raise KeyError(f"parameter '{param}' not found in {cfg.keys()}")
             # Check if input parameter is of correct type? --> TypeError
             if schema[param][0] == number:
-                if not any([isinstance(cfg[param], ptype) for ptype in schema[param][0]]):
-                    raise TypeError(f"Value '{cfg[param]}' of parameter '{param}' should be a number (int or float)!")
+                if not any([
+                        isinstance(cfg[param], ptype)
+                        for ptype in schema[param][0]
+                ]):
+                    raise TypeError(
+                        f"Value '{cfg[param]}' of parameter '{param}' should be a number (int or float)!"
+                    )
             if schema[param][0] == int:
                 if not isinstance(cfg[param], schema[param][0]):
-                    raise TypeError(f"Value '{cfg[param]}' of parameter '{param}' should be an integer number (int)!")
+                    raise TypeError(
+                        f"Value '{cfg[param]}' of parameter '{param}' should be an integer number (int)!"
+                    )
             if schema[param][0] == float:
                 if not isinstance(cfg[param], schema[param][0]):
-                    raise TypeError(f"Value '{cfg[param]}' of parameter '{param}' should be a floating point number (float)!")
+                    raise TypeError(
+                        f"Value '{cfg[param]}' of parameter '{param}' should be a floating point number (float)!"
+                    )
             if schema[param][0] == str:
                 if not isinstance(cfg[param], schema[param][0]):
-                    raise TypeError(f"Value '{cfg[param]}' of parameter '{param}' should be a string (str)!")
+                    raise TypeError(
+                        f"Value '{cfg[param]}' of parameter '{param}' should be a string (str)!"
+                    )
             # Check if input parameter value is within bounds/choices? --> ValueError
             if schema[param][0] in (number, int, float):
-                if not (schema[param][1][0] <= cfg[param] <= schema[param][1][1]):
-                    raise ValueError(f"OOB: {param}={cfg[param]} is out-of-bounds. {schema[param][1][0]} <= {cfg[param]} <= {schema[param][1][1]}")
+                if not (schema[param][1][0] <= cfg[param] <=
+                        schema[param][1][1]):
+                    raise ValueError(
+                        f"OOB: {param}={cfg[param]} is out-of-bounds. {schema[param][1][0]} <= {cfg[param]} <= {schema[param][1][1]}"
+                    )
             else:
                 if cfg[param] not in schema[param][1]:
-                    raise ValueError(f"Key: {cfg[param]} not found. Should be one of {schema[param][1]}")
+                    raise ValueError(
+                        f"Key: {cfg[param]} not found. Should be one of {schema[param][1]}"
+                    )
         return cfg
 
 

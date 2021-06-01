@@ -51,7 +51,6 @@ SIM_PARAMS_EXAMPLE = {
 class Simulation:
 
     def __init__(self, sim_params):
-
         self.moisture_uptake_coefficient = sim_params[
             "moistureUptakeCoefficient"]
         self.length = sim_params["sampleLength"]
@@ -66,7 +65,6 @@ class Simulation:
         self.dt = sim_params["timeStepSize"]
         self.total_time = sim_params["totalTime"]
         # Don't do it this way: wastes a lot of memory for large dt and totalTime
-        # Just generate this array as needed
         self.time_range = np.arange(0, sim_params["totalTime"] + self.dt,
                                     self.dt)
 
@@ -92,8 +90,15 @@ class Simulation:
         Returns:
             w ... liquid moisture content
         """
+        val = (1.0 + self.pore_size * P_suc)
 
-        return self.free_saturation / (1.0 + self.pore_size * P_suc)
+        ret = self.free_saturation / val
+        if val < 1e-5:
+            print("val: ", val)
+            print("pore_size: ", self.pore_size)
+            print("P_suc: ", P_suc)
+
+        return ret
 
     def P_suc(self, w):
         """Inverse of water retention curve
@@ -134,13 +139,22 @@ class Simulation:
         
         Returns:
             K_w ... total moisture conductivity Kw
+
+        TODO: Wrap with np.vectorize? (https://numpy.org/doc/stable/reference/generated/numpy.vectorize.html)
         """
 
         const = (self.w(P_suc) /
                  self.free_saturation)**self.free_parameter  #reuse data
 
-        return -self.dw(P_suc) * ((self.free_parameter + 1) / (2 * self.free_parameter)) * (self.moisture_uptake_coefficient / self.free_saturation)**2 * \
-            const * (self.free_parameter + 1 - const)
+        # l1 = ((self.free_parameter + 1) / (2 * self.free_parameter))
+        # l2 = (self.moisture_uptake_coefficient / self.free_saturation)**2
+        # l3 = const * (self.free_parameter + 1 - const)
+
+        l1 = const * (self.free_parameter + 1) / (2 * self.free_parameter) * (
+            self.free_parameter + 1 - const)
+        l2 = (self.moisture_uptake_coefficient / self.free_saturation)**2
+
+        return -self.dw(P_suc) * l1 * l2
 
     def K_interface(self, K_P, K_W):
         """calculate the liquid conductivity at the interface between two nodes
@@ -161,9 +175,27 @@ class Simulation:
             return (K_P + K_W) / 2
         if self.averaging_method == "harmonic":
             return 2 * K_W * K_P / (K_W + K_P)
-        raise ValueError(f"averaging_method={self.averaging_method} not one of [linear, harmonic]!")
+        raise ValueError(
+            f"averaging_method={self.averaging_method} not one of [linear, harmonic]!"
+        )
 
-    def dwdt(self, w_P, index):
+    def dwdt(self, w_P_C, w_P_W, w_P_E):
+        """evaluate the right hand side of the governing equation (time derivative of w_P)
+        """
+
+        P_suc_P = self.P_suc(w_P_C)
+        P_suc_W = self.P_suc(w_P_W)
+        P_suc_E = self.P_suc(w_P_E)
+
+        K_e = self.K_interface(self.K_w(P_suc_P), self.K_w(P_suc_E))
+        K_w = self.K_interface(self.K_w(P_suc_P), self.K_w(P_suc_W))
+
+        dwdt = -K_e * (P_suc_E - P_suc_P) / self.dx**2 - K_w * (
+            P_suc_W - P_suc_P) / self.dx**2
+
+        return dwdt
+
+    def dwdt_old(self, w_P, index):
         """evaluate the right hand side of the governing equation (time derivative of w_P)
         """
 
@@ -183,25 +215,35 @@ class Simulation:
         """runge kutta method to calculate the moisture content at a specific control volume
         """
 
-        for index in range(1, self.number_of_element + 1):
+        volume = self.w_control_volume
+        #for index in range(1, self.number_of_element + 1):
+        # for index, (w_P_W, w_P, w_P_E) in enumerate(zip(volume[:1], volume[1:], volume[2:])):
+        # Iterating over numpy arrays: https://numpy.org/doc/stable/reference/arrays.nditer.html#tracking-an-index-or-multi-index
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+                       op_flags=['readwrite'],
+                       flags=["f_index"],
+                       order="C") as it:
+            for w_P_W, w_P, w_P_E in it:
 
-            w_P = self.w_control_volume[index]
+                # w_P = self.w_control_volume[index]
 
-            k1 = self.dwdt(w_P, index)
-            k2 = self.dwdt((w_P + 0.5 * self.dt * k1), index)
-            k3 = self.dwdt((w_P + 0.5 * self.dt * k2), index)
-            k4 = self.dwdt((w_P + 1.0 * self.dt * k3), index)
+                # k1 = self.dwdt(w_P, index)
+                k1 = self.dwdt(w_P, w_P_W, w_P_E)
+                k2 = self.dwdt((w_P + 0.5 * self.dt * k1), w_P_W, w_P_E)
+                k3 = self.dwdt((w_P + 0.5 * self.dt * k2), w_P_W, w_P_E)
+                k4 = self.dwdt((w_P + 1.0 * self.dt * k3), w_P_W, w_P_E)
 
-            rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+                rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
 
-            # if (rhs >= 1e-12):
-            #     self.w_control_volume[index] += rhs
-            # else:
-            #     break
-            # Same logic, but a bit faster AND imo easier to understand
-            if (rhs < 1e-12):
-                break
-            self.w_control_volume[index] += rhs
+                # if (rhs >= 1e-12):
+                #     self.w_control_volume[index] += rhs
+                # else:
+                #     break
+                # Same logic, but a bit faster AND imo easier to understand
+                if (rhs < 1e-12):
+                    break
+                w_P += rhs
+                # self.w_control_volume[index] += rhs
 
     # Probe [ger] == sample [engl]
     def total_moisture_sample(self, flag="absolute"):
@@ -214,17 +256,17 @@ class Simulation:
         #     w += self.w_control_volume[i] * self.dx
 
         # Iterate over the elements directly (faster):
-        # for item in self.number_of_element[1:]:
+        # for item in self.w_control_volume[1:]:
         #     w += item * self.dx
 
         # OR use the even faster list comprehension feature (even faster):
         # Allows the interpreter to do some optimization...
-        # w = sum([self.dx*item for item in self.number_of_element[1:]])
+        # w = sum([self.dx*item for item in self.w_control_volume[1:]])
 
         # OR use numpy (FASTEST): --> C-Code
         # Reasoning being that Python is slow and C is fast.
         # (numpy is just compiled C-Code)
-        w = np.sum(self.dx * self.number_of_element[1:])
+        w = np.sum(self.dx * self.w_control_volume[1:])
 
         if flag == "absolute":
             return w / self.length
@@ -247,7 +289,7 @@ class Simulation:
         # In Python, how you loop makes a huge difference!
         # Index access is fast in C/C++, but is the worst in Python!
         #for t in self.time_range:
-        for t in np.arange(0, self.total_time + self.dt, self.dt):
+        for t in tqdm(np.arange(0, self.total_time + self.dt, self.dt)):
 
             self.runge_kutta()
 
@@ -259,7 +301,7 @@ class Simulation:
             # I prefer the newer f-strings in python:
             # print(f"progress: {t:.2f} / {self.total_time}", end="\r")
             # but use whichever you prefer!
-            print("progress: %.2f / %d" % (t, self.total_time), end="\r")
+            #print("progress: %.2f / %d" % (t, self.total_time), end="\r")
 
         #print(self.w_control_volume)
 
@@ -290,7 +332,7 @@ class Simulation:
         stimmt nicht ganz
         """
         P_suc = np.linspace(0, 1e9, 100000)
-        Kw = self.K_w(P_suc)
+        Kw = np.vectorize(self.K_w)(P_suc)
         draw_placeholder(P_suc, Kw)
 
     def draw_watercontent(self):
@@ -305,7 +347,6 @@ class Simulation:
         w = np.append(w, w_last)
         t = np.arange(0, 2 * self.total_time, self.dt)
         draw_watercontent(w, t)
-
 
     def demo(self):
         """demo the simulation
