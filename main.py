@@ -30,25 +30,37 @@ from src.simulate import Simulation
 #from src.process import *
 
 SIM_VERSION = "0.1"
+welcome_text = f"""
+#################################
+# Moisture Transport Simulation #
+#################################
+
+Version: {SIM_VERSION}
+Authors: - HOLZNER, Peter
+         - LUO, Likun
+"""
 argParser = ArgumentParser(prog=f"MoistureTransport Simulation v{SIM_VERSION}",
-                           description="blabla",
-                           prefix_chars="?")
+                           description=welcome_text,
+                           prefix_chars="-")
 
+argParser.add_argument('--cfg', nargs="?", default="./cfg/input.json")
+argParser.add_argument('--mode',
+                       nargs="?",
+                       choices=["demo", "uptake"],
+                       default="uptake")
+print(welcome_text)
+args = argParser.parse_args()
 
-print("#################################")
-print("# Moisture Transport Simulation #")
-print("#################################")
-print()
-print("Version: ", SIM_VERSION)
-print("Authors: - HOLZNER, Peter")
-print("         - LUO, Likun")
-print()
+######################
+# Configuration file #
+######################
 
 # Prompt for cfg file
-cfg_file_path = "./cfg/input.json"
+cfg_file_path = args.cfg
 use_standard_cfg = None
 while True:
-    use_standard_cfg = input(f"Use the configuration file found at {cfg_file_path}? (y/N): ")
+    use_standard_cfg = input(
+        f"Use the configuration file found at {cfg_file_path}? (y/N): ")
 
     if use_standard_cfg == "":
         print("User stopped: Simulation aborted...")
@@ -62,7 +74,9 @@ while True:
         if alt_file.is_file():
             if alt_file.suffix in VALID_FILE_FORMATS:
                 break
-            print(f"Provided file '{alt_file}' does not have a valid format: {VALID_FILE_FORMATS}!")
+            print(
+                f"Provided file '{alt_file}' does not have a valid format: {VALID_FILE_FORMATS}!"
+            )
         else:
             print(f"Provided file '{alt_file}' isn't a file or can't be found!")
 
@@ -75,17 +89,28 @@ cfg = cfgParser()
 print("--> Parameters are valid!")
 print()
 
+######################
+# --- Simulation --- #
+######################
+mode = args.mode
+print("mode: ", mode)
 print("------- STARTING SIMULATION -------")
 sim = Simulation(cfg)
 print(f"Simulating a time span of: ")
 
 #exit(0)
-print("Drawing starting state")
-sim.draw()
-sim.demo()
-print("Drawing final state")
-sim.draw()
-sim.draw_watercontent()
+
+if mode == "demo":
+    print("Drawing starting state")
+    sim.draw()
+
+    sim.demo()
+
+    print("Drawing final state")
+    #sim.draw()
+    sim.draw_watercontent()
+else:
+    sim.run_simulation()
 
 print("------- SIMULATION DONE  -------")
 print("Results:")
