@@ -192,57 +192,7 @@ class Simulation:
 
         return dwdt
 
-    def dwdt_old(self, w_P, index):
-        """evaluate the right hand side of the governing equation (time derivative of w_P)
-        """
-
-        P_suc_P = self.P_suc(w_P)
-        P_suc_W = self.P_suc(self.w_control_volume[index - 1])
-        P_suc_E = self.P_suc(self.w_control_volume[index + 1])
-
-        K_e = self.K_interface(self.K_w(P_suc_P), self.K_w(P_suc_E))
-        K_w = self.K_interface(self.K_w(P_suc_P), self.K_w(P_suc_W))
-
-        dwdt = -K_e * (P_suc_E - P_suc_P) / self.dx**2 - K_w * (
-            P_suc_W - P_suc_P) / self.dx**2
-
-        return dwdt
-
-    def rk5(self):
-        """runge kutta 5 method with local error estimation
-        """
-
-        volume = self.w_control_volume
-
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
-                       op_flags=['readwrite'],
-                       flags=["f_index"],
-                       order="C") as it:
-            for w_P_W, w_P, w_P_E in it:
-
-                k1 = self.dwdt(w_P, w_P_W, w_P_E)
-                k2 = self.dwdt((w_P + 0.25 * self.current_dt * k1), w_P_W,
-                               w_P_E)
-                k3 = self.dwdt((w_P + 4 * self.current_dt * k1 / 81 +
-                                32 * self.current_dt * k2 / 81), w_P_W, w_P_E)
-                k4 = self.dwdt((w_P + 57 * self.current_dt * k1 / 98 -
-                                432 * self.current_dt * k2 / 343 +
-                                1053 * self.current_dt * k3 / 686), w_P_W,
-                               w_P_E)
-                k5 = self.dwdt((w_P + 1 * self.current_dt * k1 / 6 +
-                                27 * self.current_dt * k3 / 52 +
-                                49 * self.current_dt * k4 / 156), w_P_W, w_P_E)
-
-                rhs = self.current_dt * (43 * k1 / 288 + 243 * k3 / 416 +
-                                         343 * k4 / 1872 + k5 / 12)
-
-                error = self.current_dt * (-5 * k1 / 288 + 27 * k3 / 416 -
-                                           245 * k4 / 1872 + k5 / 12)
-
-                if w_P + rhs > self.free_saturation or error > 1e-6:
-                    pass
-
-    def rk5_new(self, w_P_W, w_P, w_P_E):
+    def rk5(self, w_P_W, w_P, w_P_E):
         """runge kutta 5 method with local error estimation
         """
 
@@ -266,6 +216,16 @@ class Simulation:
 
         return rhs, error
 
+    def total_moisture_sample(self, flag="absolute"):
+        """calculate the total moisture of the sample
+        """
+        w = np.sum(self.dx * self.w_control_volume[1:-1])
+
+        if flag == "absolute":
+            return w / self.length
+        else:
+            return 100 * w / (self.free_saturation * self.length)
+
     def update(self):
         """update the control volume.
 
@@ -282,7 +242,7 @@ class Simulation:
                        flags=["f_index"],
                        order="C") as it:
             for w_P_W, w_P, w_P_E in it:
-                rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
+                rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 # A little bit more concise ;)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):
                     valid = False
@@ -309,7 +269,7 @@ class Simulation:
                        flags=["f_index"],
                        order="C") as it:
             for w_P_W, w_P, w_P_E, buf in it:
-                rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
+                rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 # A little bit more concise ;)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):
                     valid = False
@@ -390,7 +350,6 @@ class Simulation:
         fig = plt.figure(figsize=(8,6))
         ax = plt.gca()
         
-
         if sqrt_time:
             plt.plot(np.sqrt(self.t), self.w_total, label=self.averaging_method)
             plt.xlabel("sqrt(time) [sqrt(hours)]")
@@ -440,112 +399,13 @@ class Simulation:
         print(f"Final Total Moisture Saturation = {moist:.3f}", "%")
         print(f"Moisture Uptake Coefficient 'A' = {results['A']:.2f} kg/(m^2 h^0.5)")
 
-    def iterate(self):
-        self.run()
-
-    def total_moisture_sample(self, flag="absolute"):
-        """calculate the total moisture of the sample
-        """
-        w = np.sum(self.dx * self.w_control_volume[1:-1])
-
-        if flag == "absolute":
-            return w / self.length
-        else:
-            return 100 * w / (self.free_saturation * self.length)
-
     #### [DEPRECATED] ####
-    def runge_kutta(self):
-        """runge kutta method to calculate the moisture content at a specific control volume
-        """
-
-        volume = self.w_control_volume
-        # Iterating over numpy arrays: https://numpy.org/doc/stable/reference/arrays.nditer.html#tracking-an-index-or-multi-index
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
-                       op_flags=['readwrite'],
-                       flags=["f_index"],
-                       order="C") as it:
-            for w_P_W, w_P, w_P_E in it:
-                k1 = self.dwdt(w_P, w_P_W, w_P_E)
-                k2 = self.dwdt((w_P + 0.5 * self.dt * k1), w_P_W, w_P_E)
-                k3 = self.dwdt((w_P + 0.5 * self.dt * k2), w_P_W, w_P_E)
-                k4 = self.dwdt((w_P + 1.0 * self.dt * k3), w_P_W, w_P_E)
-
-                rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
-                if (rhs < 1e-12):
-                    break
-                w_P += rhs
-
-    def run_simulation(self):
-        """run a simulation. [DEPRECATED]
-        """
-
-        self.initial_condition()
-        self.t = []
-        self.w_total = []
-        cnt = 0
-
-        print("w = %.3f" % self.total_moisture_sample(flag="relative"))
-
-        for t in tqdm(np.arange(0, self.total_time + self.dt, self.dt)):
-
-            self.runge_kutta()
-
-            if cnt % 100 == 0:
-                self.t.append(t)
-                self.w_total.append(self.total_moisture_sample(flag="relative"))
-
-            cnt += 1
-            #print("progress: %.2f / %d" % (t, self.total_time), end="\r")
-
-        #print(self.w_control_volume)
-
-        print("w = %.2f" % self.total_moisture_sample(flag="relative"))
-
-        self.plot_moisture()
-
-    def draw(self):
-        """compare the curve with literature
-
-        stimmt nicht ganz
-        """
-        P_suc = np.linspace(0, 1e9, 100000)
-        Kw = np.vectorize(self.K_w)(P_suc)
-        draw_placeholder(P_suc, Kw)
-
-    def draw_watercontent(self):
-        """watercontent
-
-        demo
-        """
-        t = np.arange(0, self.total_time, self.dt_init)
-
-        w = 30 + 10 * np.sqrt(t)
-        w_last = w[-1] * np.ones_like(w)
-        w = np.append(w, w_last)
-        t = np.arange(0, 2 * self.total_time, self.dt_init)
-        draw_watercontent(w, t)
-
-    def demo(self):
-        """demo the simulation
-
-        Just a placeholder for now...mainly to show tqdm.
-        TQDM Usage, see: https://github.com/tqdm/tqdm#usage
-        """
-        print("Running first sweep")
-        for i in trange(10):
-            sleep(0.1)
-        # print("Running second sweep")
-        # for i in tqdm(range(10)):
-        #     sleep(0.1)
-        print("Simulation done! (Wow...that was fast!)")
-
     def print_params(self):
         print("Moisture uptake coefficient :", self.pore_size)
 
 
 if __name__ == "__main__":
     x = Simulation(SIM_PARAMS_EXAMPLE)
-    #x.run_simulation()
     #x.simulation_test()
     tot = 100
     t = np.linspace(0, tot/2, int(tot/2/0.01))
