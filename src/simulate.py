@@ -34,6 +34,8 @@ if __name__ == "__main__":
 else:
     from .process import draw_placeholder, draw_watercontent
 
+EPS = np.finfo(float).eps
+
 SIM_PARAMS_EXAMPLE = {
     "material": "brick",
     "sampleLength": 0.2,
@@ -65,9 +67,6 @@ class Simulation:
         self.dx = self.length / self.number_of_element
         #self.dt = sim_params["timeStepSize"]
         self.total_time = sim_params["totalTime"]
-        # Don't do it this way: wastes a lot of memory for large dt and totalTime
-        #self.time_range = np.arange(0, sim_params["totalTime"] + self.dt,
-        #                            self.dt)
 
         self.current_time = .0
         self.dt_init = 1e-10
@@ -98,11 +97,6 @@ class Simulation:
         val = (1.0 + self.pore_size * P_suc)
 
         ret = self.free_saturation / val
-
-        #if val < 1e-5:
-        #    print("val: ", val)
-        #    print("pore_size: ", self.pore_size)
-        #    print("P_suc: ", P_suc)
 
         return ret
 
@@ -151,10 +145,6 @@ class Simulation:
 
         const = (self.w(P_suc) /
                  self.free_saturation)**self.free_parameter  #reuse data
-
-        # l1 = ((self.free_parameter + 1) / (2 * self.free_parameter))
-        # l2 = (self.moisture_uptake_coefficient / self.free_saturation)**2
-        # l3 = const * (self.free_parameter + 1 - const)
 
         l1 = const * (self.free_parameter + 1) / (2 * self.free_parameter) * (
             self.free_parameter + 1 - const)
@@ -275,134 +265,109 @@ class Simulation:
 
         return rhs, error
 
-    def simulation_test(self):
+    def update(self):
+        """update the control volume.
 
-        self.initial_condition()
-
-        self.t = []
-        self.w_total = []
-
-        cnt = 0
-
-        print("initial w = %.3f" % self.total_moisture_sample(flag="relative"), "%")
-        print("number of element: ",self.number_of_element)
-        print("initial timestep: ", self.current_dt)
-
-        while self.current_time < self.total_time:
-
-            valid = False
-
-            volume = self.w_control_volume
-
-            with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
-                           op_flags=['readwrite'],
-                           flags=["f_index"],
-                           order="C") as it:
-                for w_P_W, w_P, w_P_E in it:
-                    rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
-                    if (w_P + rhs > self.free_saturation) or (error > 1e-6):
-                        valid = False
-                        self.current_dt /= 2
-                        break
-
-                    elif (rhs > 1e-12):
-                        w_P += rhs
-                        valid = True
-
-                    else:
-                        valid = True
-                        break
-
-            if valid:
-
-                if cnt % 100 == 0:
-                    self.t.append(self.current_time)
-                    self.w_total.append(
-                        self.total_moisture_sample(flag="relative"))
-
-                cnt += 1
-                self.current_time += self.current_dt
-                self.current_dt *= 2
-
-            print("Progress: %.2f / %d, current time step: %.2e s" %
-                  (self.current_time, self.total_time, self.current_dt),
-                  end="\r")
-
-        print("final time step: ", self.current_dt)
-        print("final w = %.3f" % self.total_moisture_sample(flag="relative"), "%")
-
-        title = "Number of elements = " + str(
-            self.number_of_element) + ",initial time step = " + str(
-                self.dt_init) + ",final time step = " + str(
-                    self.current_dt) + ", initial saturation = " + str(
-                        self.initial_moisture_content) + "%"
-        # f-string version (often shorter or at least as short):
-        #title = f"Number of elements = {self.number_of_element}, time step = {self.dt}, initial saturation = {self.initial_moisture_content}%"
-
-        # Make this a method (or function in process.py)
-        # --> Smaller blocks of code == easier to understand and maintain!
-        plt.plot(self.t, self.w_total, label="linear averaging")
-        plt.title(title)
-        plt.ylabel("saturation degree [%]")
-        plt.xlabel("time [hours]")
-        plt.legend()
-        plt.show()
-
-    def runge_kutta(self):
-        """runge kutta method to calculate the moisture content at a specific control volume
+        calculates one iteration step and updates the control volume.
+        Validity of the update value is checked.
         """
 
-        volume = self.w_control_volume
-        #for index in range(1, self.number_of_element + 1):
-        # for index, (w_P_W, w_P, w_P_E) in enumerate(zip(volume[:1], volume[1:], volume[2:])):
-        # Iterating over numpy arrays: https://numpy.org/doc/stable/reference/arrays.nditer.html#tracking-an-index-or-multi-index
+        volume = self.w_control_volume  # for better format/readability
+        valid = True  # It's valid unless the one break condition is true
         with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
                        op_flags=['readwrite'],
                        flags=["f_index"],
                        order="C") as it:
             for w_P_W, w_P, w_P_E in it:
-
-                # w_P = self.w_control_volume[index]
-
-                # k1 = self.dwdt(w_P, index)
-                k1 = self.dwdt(w_P, w_P_W, w_P_E)
-                k2 = self.dwdt((w_P + 0.5 * self.dt * k1), w_P_W, w_P_E)
-                k3 = self.dwdt((w_P + 0.5 * self.dt * k2), w_P_W, w_P_E)
-                k4 = self.dwdt((w_P + 1.0 * self.dt * k3), w_P_W, w_P_E)
-
-                rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
-
-                # if (rhs >= 1e-12):
-                #     self.w_control_volume[index] += rhs
-                # else:
-                #     break
-                # Same logic, but a bit faster AND imo easier to understand
+                rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
+                # A little bit more concise ;)
+                if (w_P + rhs > self.free_saturation) or (error > 1e-6):
+                    valid = False
+                    self.current_dt /= 2
+                    break
                 if (rhs < 1e-12):
                     break
-                w_P += rhs
-                # self.w_control_volume[index] += rhs
 
-    # Probe [ger] == sample [engl]
+                w_P += rhs
+
+        return valid
+
+    def simulation_test(self):
+        """Run a simulation with adaptive iteration scheme.
+        """
+        self.initial_condition()
+        print("initial w = %.3f" % self.total_moisture_sample(flag="relative"),
+              "%")
+        print("number of element: ", self.number_of_element)
+        print("initial timestep: ", self.current_dt)
+        print("total simulation time: ", self.total_time)
+
+        self.t = []
+        self.w_total = []
+        cnt = 0
+
+        timestep_text = lambda: f"current time step = {self.current_dt:.2e}s"
+        with tqdm(
+                desc="Time: ",
+                total=self.total_time,
+                unit="it",
+                ncols=150,
+                mininterval=1,
+                unit_scale=1,
+                postfix=timestep_text(),
+                bar_format="{desc}: {n:.2f}s --> {percentage:3.0f}%| "
+                "{bar}| "
+                "{n_fmt}/{total_fmt} [Projected runtime: {elapsed}+{remaining}={total}, ' '{rate_fmt}{postfix}]",
+                position=0) as progress:
+            #[default: '{l_bar}{bar}{r_bar}'], where l_bar='{desc}: {percentage:3.0f}%|' and r_bar='| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, ' '{rate_fmt}{postfix}]' Possible vars: l_bar, bar, r_bar, n, n_fmt, total, total_fmt, percentage, elapsed, elapsed_s, ncols, nrows, desc, unit, rate, rate_fmt, rate_noinv, rate_noinv_fmt, rate_inv, rate_inv_fmt, postfix, unit_divisor, remaining, remaining_s, eta. Note that a trailing ": " is automatically removed after {desc} if the latter is empty.
+            while self.current_time < self.total_time:
+                valid = self.update()
+
+                if valid:
+                    if cnt % 100 == 0:
+                        self.t.append(self.current_time)
+                        self.w_total.append(
+                            self.total_moisture_sample(flag="relative"))
+
+                    cnt += 1
+                    self.current_time += self.current_dt
+                    self.current_dt *= 2
+
+                # Progress output
+                percentage = self.current_time / self.total_time * 100
+                # print(
+                #     f"Progress: {self.current_time:.2f} / {self.total_time:d} ({percentage:3.0f}%), current time step: {self.current_dt:.2e} s",
+                #     end="\r")
+                progress.postfix = timestep_text()
+                #progress.percentage = percentage if percentage <= 100 else 99
+                progress.n = self.current_time if self.current_time < self.total_time else self.total_time - 1  # * (1 - 5*EPS)
+                progress.update()
+        input()
+        print()
+        print("final time step: ", self.current_dt)
+        print("final w = %.3f" % self.total_moisture_sample(flag="relative"),
+              "%")
+
+        self.plot_moisture()
+
+    def plot_moisture(self):
+        """plots the current moisture content in the volume.
+        """
+        title = f"N = {self.number_of_element}, dt = [{self.dt_init}, {self.current_dt}], initial saturation = {self.initial_moisture_content}%"
+
+        plt.plot(self.t, self.w_total, label=self.averaging_method)
+        plt.title(title)
+        plt.ylabel("saturation [%]")
+        plt.xlabel("time [hours]")
+        plt.legend()
+        plt.show()
+
+    def iterate(self):
+        self.run()
+
     def total_moisture_sample(self, flag="absolute"):
         """calculate the total moisture of the sample
         """
-        w = 0
-
-        # Index access is terribly slow in pyton
-        # for i in range(1,self.number_of_element + 1):
-        #     w += self.w_control_volume[i] * self.dx
-
-        # Iterate over the elements directly (faster):
-        # for item in self.w_control_volume[1:]:
-        #     w += item * self.dx
-
-        # OR use the even faster list comprehension feature (even faster):
-        # Allows the interpreter to do some optimization...
-        # w = sum([self.dx*item for item in self.w_control_volume[1:]])
-
-        # OR use numpy (FASTEST): --> C-Code
-        # Reasoning being that Python is slow and C is fast.
-        # (numpy is just compiled C-Code)
         w = np.sum(self.dx * self.w_control_volume[1:-1])
 
         if flag == "absolute":
@@ -410,22 +375,39 @@ class Simulation:
         else:
             return 100 * w / (self.free_saturation * self.length)
 
+    #### [DEPRECATED] ####
+    def runge_kutta(self):
+        """runge kutta method to calculate the moisture content at a specific control volume
+        """
+
+        volume = self.w_control_volume
+        # Iterating over numpy arrays: https://numpy.org/doc/stable/reference/arrays.nditer.html#tracking-an-index-or-multi-index
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+                       op_flags=['readwrite'],
+                       flags=["f_index"],
+                       order="C") as it:
+            for w_P_W, w_P, w_P_E in it:
+                k1 = self.dwdt(w_P, w_P_W, w_P_E)
+                k2 = self.dwdt((w_P + 0.5 * self.dt * k1), w_P_W, w_P_E)
+                k3 = self.dwdt((w_P + 0.5 * self.dt * k2), w_P_W, w_P_E)
+                k4 = self.dwdt((w_P + 1.0 * self.dt * k3), w_P_W, w_P_E)
+
+                rhs = self.dt * (k1 + 2 * k2 + 2 * k3 + k4) / 6
+                if (rhs < 1e-12):
+                    break
+                w_P += rhs
+
     def run_simulation(self):
+        """run a simulation. [DEPRECATED]
+        """
 
         self.initial_condition()
-
         self.t = []
         self.w_total = []
-
         cnt = 0
 
         print("w = %.3f" % self.total_moisture_sample(flag="relative"))
 
-        # Just use the generator expression here, so it doesn't use
-        # as much memory and is gone after the loop.
-        # In Python, how you loop makes a huge difference!
-        # Index access is fast in C/C++, but is the worst in Python!
-        #for t in self.time_range:
         for t in tqdm(np.arange(0, self.total_time + self.dt, self.dt)):
 
             self.runge_kutta()
@@ -435,33 +417,13 @@ class Simulation:
                 self.w_total.append(self.total_moisture_sample(flag="relative"))
 
             cnt += 1
-            # I prefer the newer f-strings in python:
-            # print(f"progress: {t:.2f} / {self.total_time}", end="\r")
-            # but use whichever you prefer!
             #print("progress: %.2f / %d" % (t, self.total_time), end="\r")
 
         #print(self.w_control_volume)
 
         print("w = %.2f" % self.total_moisture_sample(flag="relative"))
 
-        title = "Number of elements = " + str(
-            self.number_of_element) + ", time step = " + str(
-                self.dt) + ", initial saturation = " + str(
-                    self.initial_moisture_content) + "%"
-        # f-string version (often shorter or at least as short):
-        #title = f"Number of elements = {self.number_of_element}, time step = {self.dt}, initial saturation = {self.initial_moisture_content}%"
-
-        # Make this a method (or function in process.py)
-        # --> Smaller blocks of code == easier to understand and maintain!
-        plt.plot(self.t, self.w_total, label="linear averaging")
-        plt.title(title)
-        plt.ylabel("saturation degree [%]")
-        plt.xlabel("time [hours]")
-        plt.legend()
-        plt.show()
-
-    def iterate(self):
-        self.run()
+        self.plot_moisture()
 
     def draw(self):
         """compare the curve with literature
@@ -477,12 +439,12 @@ class Simulation:
 
         demo
         """
-        t = np.arange(0, self.total_time, self.dt)
+        t = np.arange(0, self.total_time, self.dt_init)
 
         w = 10 * np.sqrt(t)
         w_last = w[-1] * np.ones_like(w)
         w = np.append(w, w_last)
-        t = np.arange(0, 2 * self.total_time, self.dt)
+        t = np.arange(0, 2 * self.total_time, self.dt_init)
         draw_watercontent(w, t)
 
     def demo(self):

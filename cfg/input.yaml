@@ -8,5 +8,5 @@ freeParameter: 10
 numberofElements: 100
 timeStepSize: 0.01
 totalTime: 10
-Anfangsfeuchte: 40
+Anfangsfeuchte: 10
 averagingMethod: "linear"

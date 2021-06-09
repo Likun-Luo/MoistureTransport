@@ -30,103 +30,122 @@ from src.input import DefaultParser, YAMLParser, VALID_FILE_FORMATS
 from src.simulate import Simulation
 #from src.process import *
 
-SIM_VERSION = "0.1"
+VERSION = "0.1"
 welcome_text = f"""
 #################################
 # Moisture Transport Simulation #
 #################################
 
-Version: {SIM_VERSION}
+Version: {VERSION}
 Authors: - HOLZNER, Peter
          - LUO, Likun
 """
-argParser = ArgumentParser(prog=f"MoistureTransport Simulation v{SIM_VERSION}",
+argParser = ArgumentParser(prog=f"MoistureTransport Simulation v{VERSION}",
                            description=welcome_text,
                            prefix_chars="-")
 
+argParser.add_argument('-y', action="store_true")
 argParser.add_argument('--cfg', nargs="?", default="./cfg/input.json")
 argParser.add_argument('--mode',
                        nargs="?",
                        choices=["demo", "uptake"],
                        default="uptake")
-print(welcome_text)
-args = argParser.parse_args()
 
-######################
-# Configuration file #
-######################
 
-# Prompt for cfg file
-cfg_file_path = Path(args.cfg)
-if not cfg_file_path.is_file():
-    print(f"Provided file '{cfg_file_path}' isn't a file or can't be found!")
-if cfg_file_path.suffix not in VALID_FILE_FORMATS:
-    print(
-        f"Provided file '{cfg_file_path}' does not have a valid format: {VALID_FILE_FORMATS}!"
-    )
+def main():
+    print(welcome_text)
+    args = argParser.parse_args()
 
-use_standard_cfg = None
-while True:
-    use_standard_cfg = input(
-        f"Use the configuration file found at {cfg_file_path}? (y/N): ")
+    ######################
+    # Configuration file #
+    ######################
 
-    if use_standard_cfg == "":
-        print("User stopped: Simulation aborted...")
-        exit(1)
+    # Prompt for cfg file
+    cfg_file_path = Path(args.cfg)
+    if not cfg_file_path.is_file():
+        print(
+            f"Provided file '{cfg_file_path}' isn't a file or can't be found!")
+    if cfg_file_path.suffix not in VALID_FILE_FORMATS:
+        print(
+            f"Provided file '{cfg_file_path}' does not have a valid format: {VALID_FILE_FORMATS}!"
+        )
 
-    if use_standard_cfg in ["y", "Y"]:
-        break
+    use_standard_cfg = args.y
+    print(use_standard_cfg)
+    while use_standard_cfg == False:
+        use_standard_cfg = input(
+            f"Use the configuration file found at {cfg_file_path}? (y/N): ")
 
-    if use_standard_cfg in ["n", "N"]:
-        alt_file = Path(input("Path to configuration file: "))
-        if alt_file.is_file():
-            if alt_file.suffix in VALID_FILE_FORMATS:
-                cfg_file_path = alt_file
-                break
-            print(
-                f"Provided file '{alt_file}' does not have a valid format: {VALID_FILE_FORMATS}!"
-            )
-        else:
-            print(f"Provided file '{alt_file}' isn't a file or can't be found!")
+        if use_standard_cfg == "":
+            print("User stopped: Simulation aborted...")
+            exit(1)
 
-    print("Invalid input. Please use either y or N!")
-# Cfg selected
-print()
-print("Parsing selected simulation configuration file...")
-if cfg_file_path.suffix == ".json":
-    cfgParser = DefaultParser(cfg_file_path)
-elif cfg_file_path.suffix == ".yaml":
-    cfgParser = YAMLParser(cfg_file_path)
-else:
-    raise ValueError(f"{cfg_file_path.suffix} is not a valid file format!")
-cfg = cfgParser()
-print("--> Parameters are valid!")
-print()
-#exit(0)
-######################
-# --- Simulation --- #
-######################
-mode = args.mode
-print("mode: ", mode)
-print("------- STARTING SIMULATION -------")
-sim = Simulation(cfg)
-print(f"Simulating a time span of:{sim.total_time} ")
+        if use_standard_cfg in ["y", "Y"]:
+            break
 
-if mode == "demo":
-    print("Drawing starting state")
-    sim.draw()
+        if use_standard_cfg in ["n", "N"]:
+            alt_file = Path(input("Path to configuration file: "))
+            if alt_file.is_file():
+                if alt_file.suffix in VALID_FILE_FORMATS:
+                    cfg_file_path = alt_file
+                    break
+                print(
+                    f"Provided file '{alt_file}' does not have a valid format: {VALID_FILE_FORMATS}!"
+                )
+            else:
+                print(
+                    f"Provided file '{alt_file}' isn't a file or can't be found!"
+                )
 
-    sim.demo()
+        print("Invalid input. Please use either y or N!")
+        use_standard_cfg = False
+    else:
+        print(
+            f"Using the configuration file found at the default path {cfg_file_path}"
+        )
+    # Cfg selected
+    print()
+    print("Parsing selected simulation configuration file...")
+    if cfg_file_path.suffix == ".json":
+        cfgParser = DefaultParser(cfg_file_path)
+    elif cfg_file_path.suffix == ".yaml":
+        cfgParser = YAMLParser(cfg_file_path)
+    else:
+        raise ValueError(f"{cfg_file_path.suffix} is not a valid file format!")
+    cfg = cfgParser()
+    print("--> Parameters are valid!")
+    print()
+    #exit(0)
+    ######################
+    # --- Simulation --- #
+    ######################
+    mode = args.mode
+    print("mode: ", mode)
+    print("------- STARTING SIMULATION -------")
+    sim = Simulation(cfg)
+    print(f"Simulating a time span of:{sim.total_time} ")
 
-    print("Drawing final state")
-    #sim.draw()
-    sim.draw_watercontent()
-else:
-    sim.simulation_test()
+    if mode == "demo":
+        print("Drawing starting state")
+        sim.draw()
 
-print("------- SIMULATION DONE  -------")
-print("Results:")
-print("\tA = 1")
-print("\tB = 1")
-print("\t...")
-print(f"Graphs and simulation report saved at: {RESULTS_DIR}")
+        sim.demo()
+
+        print("Drawing final state")
+        #sim.draw()
+        sim.draw_watercontent()
+    else:
+        sim.simulation_test()
+
+    print("------- SIMULATION DONE  -------")
+    print("Results:")
+    print("\tA = 1")
+    print("\tB = 1")
+    print("\t...")
+    print(f"Graphs and simulation report saved at: {RESULTS_DIR}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    main()
