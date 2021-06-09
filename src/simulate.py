@@ -65,7 +65,6 @@ class Simulation:
         self.averaging_method = sim_params["averagingMethod"]
 
         self.dx = self.length / self.number_of_element
-        #self.dt = sim_params["timeStepSize"]
         self.total_time = sim_params["totalTime"]
 
         self.current_time = .0
@@ -170,10 +169,9 @@ class Simulation:
 
         if self.averaging_method == "linear":
             return (K_P + K_W) / 2
-        if self.averaging_method == "harmonic":
-            return 2 * K_W * K_P / (K_W + K_P)
+
         raise ValueError(
-            f"averaging_method={self.averaging_method} not one of [linear, harmonic]!"
+            f"averaging_method={self.averaging_method} not yet implemented!"
         )
 
     def dwdt(self, w_P_C, w_P_W, w_P_E):
@@ -295,8 +293,9 @@ class Simulation:
 
         self.t = []
         self.w_total = []
+        self.w_absolute = []
         cnt = 0
-        buffer = np.zeros_like(self.w_control_volume[1:-1])
+        #buffer = np.zeros_like(self.w_control_volume[1:-1])
 
         timestep_text = lambda: f"current time step = {self.current_dt:.2e}s"
         with tqdm(
@@ -321,6 +320,7 @@ class Simulation:
                         self.t.append(self.current_time)
                         self.w_total.append(
                             self.total_moisture_sample(flag="relative"))
+                        self.w_absolute.append(self.total_moisture_sample(flag="absolute"))
                         #plt.show()
 
                     cnt += 1
@@ -328,7 +328,7 @@ class Simulation:
                     self.current_dt *= 2
 
                 # Progress output
-                percentage = self.current_time / self.total_time * 100
+                #percentage = self.current_time / self.total_time * 100
                 # print(
                 #     f"Progress: {self.current_time:.2f} / {self.total_time:d} ({percentage:3.0f}%), current time step: {self.current_dt:.2e} s",
                 #     end="\r")
@@ -337,7 +337,7 @@ class Simulation:
                 progress.n = self.current_time if self.current_time < self.total_time else self.total_time - 1  # * (1 - 5*EPS)
                 progress.update()
         
-        print()
+        #print()
         results = self.analyze()
         self.show_results(results)
 
@@ -351,17 +351,19 @@ class Simulation:
         ax = plt.gca()
         
         if sqrt_time:
-            plt.plot(np.sqrt(self.t), self.w_total, label=self.averaging_method)
+            plt.plot(np.sqrt(self.t), self.w_absolute, label=self.averaging_method)
             plt.xlabel("sqrt(time) [sqrt(hours)]")
+            plt.ylabel("total moisture content [kg/m³]")
             fig.suptitle("Total moisture content over square root of time", fontsize=16, fontweight='bold') # fontstyle='italic'
         else:
             plt.plot(self.t, self.w_total, label=self.averaging_method)
             plt.xlabel("time [hours]")
-            fig.suptitle("Total moisture content over time", fontsize=16, fontweight='bold')
+            plt.ylabel("saturation [%]")
+            fig.suptitle("Total saturation over time", fontsize=16, fontweight='bold')
 
         ax_title = f"N = {self.number_of_element}, dt = [{self.dt_init}, {self.current_dt}], initial saturation = {self.initial_moisture_content}%"
         ax.set_title(ax_title)
-        plt.ylabel("saturation [%]")
+        
         plt.legend()
         plt.grid(True)
         plt.show()
@@ -371,12 +373,12 @@ class Simulation:
         results = {"A": 1}
         
         k = 0
-        lower_limit = 30
-        upper_limit = 80
+        lower_limit = 0.2 * self.free_saturation * self.length
+        upper_limit = 0.8 * self.free_saturation * self.length
         idx_lower = 0 
         idx_upper = 0 
 
-        for i, w in enumerate(self.w_total):
+        for i, w in enumerate(self.w_absolute):
             if w >= lower_limit and not idx_lower:
                 idx_lower = i
             if w >= upper_limit and idx_lower:
@@ -385,7 +387,7 @@ class Simulation:
         else:
             idx_upper = len(self.w_total) - 1 
 
-        k = self.w_total[idx_upper] - self.w_total[idx_lower] / (np.sqrt(self.t[idx_upper]) - np.sqrt(self.t[idx_lower]))
+        k = (self.w_absolute[idx_upper] - self.w_absolute[idx_lower]) * self.length / (np.sqrt(self.t[idx_upper]) - np.sqrt(self.t[idx_lower]))
 
         results["A"] = k
         return results
@@ -399,25 +401,21 @@ class Simulation:
         print(f"Final Total Moisture Saturation = {moist:.3f}", "%")
         print(f"Moisture Uptake Coefficient 'A' = {results['A']:.2f} kg/(m^2 h^0.5)")
 
-    #### [DEPRECATED] ####
-    def print_params(self):
-        print("Moisture uptake coefficient :", self.pore_size)
-
 
 if __name__ == "__main__":
     x = Simulation(SIM_PARAMS_EXAMPLE)
-    #x.simulation_test()
-    tot = 100
-    t = np.linspace(0, tot/2, int(tot/2/0.01))
+    x.simulation_test()
+    # tot = 100
+    # t = np.linspace(0, tot/2, int(tot/2/0.01))
 
-    w = 30 + 10 * np.sqrt(t)
-    w_last = w[-1] * np.ones_like(w)
-    w = np.append(w, w_last)
-    t = np.linspace(0, tot, int(tot/0.01))
+    # w = 30 + 10 * np.sqrt(t)
+    # w_last = w[-1] * np.ones_like(w)
+    # w = np.append(w, w_last)
+    # t = np.linspace(0, tot, int(tot/0.01))
 
-    x.t = t
-    x.w_total =w
-    x.plot_moisture()
-    x.plot_moisture(True)
+    # x.t = t
+    # x.w_total =w
+    # x.plot_moisture()
+    # x.plot_moisture(True)
 
-    x.show_results(x.analyze())
+    # x.show_results(x.analyze())
