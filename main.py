@@ -71,7 +71,6 @@ def main():
         )
 
     use_standard_cfg = args.y
-    print(use_standard_cfg)
     while use_standard_cfg == False:
         use_standard_cfg = input(
             f"Use the configuration file found at {cfg_file_path}? (y/N): ")
@@ -115,12 +114,11 @@ def main():
     cfg = cfgParser()
     print("--> Parameters are valid!")
     print()
-    #exit(0)
+    
     ######################
     # --- Simulation --- #
     ######################
     mode = args.mode
-    print("mode: ", mode)
     print("------- STARTING SIMULATION -------")
     sim = Simulation(cfg)
     print(f"Simulating a time span of:{sim.total_time} ")
@@ -136,12 +134,6 @@ def main():
         sim.draw_watercontent()
     else:
         sim.simulation_test()
-
-    print("------- SIMULATION DONE  -------")
-    print("Results:")
-    print("\tA = 1")
-    print("\tB = 1")
-    print("\t...")
     print(f"Graphs and simulation report saved at: {RESULTS_DIR}")
 
     return 0

@@ -1,12 +1,12 @@
 material: brick # comment
 length: 10 # in m
 sampleLength: 0.2
-moistureUptakeCoefficient: 10.0
+moistureUptakeCoefficient: 10.0 # in kg/(m^2 h^0.5)
 freeSaturation: 300.0
-meanPoreSize: 1.e-5
+meanPoreSize: 1.e-6 # in m
 freeParameter: 10
 numberofElements: 100
-timeStepSize: 0.01
-totalTime: 10
-Anfangsfeuchte: 10
+timeStepSize: 0.01 # in s
+totalTime: 10 # in h
+Anfangsfeuchte: 10 # in %
 averagingMethod: "linear"

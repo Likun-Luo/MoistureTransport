@@ -70,6 +70,7 @@ class Simulation:
 
         self.current_time = .0
         self.dt_init = 1e-10
+        self.current_dt = self.dt_init
 
         self.w_control_volume = np.zeros(self.number_of_element + 2)
 
@@ -274,7 +275,34 @@ class Simulation:
 
         volume = self.w_control_volume  # for better format/readability
         valid = True  # It's valid unless the one break condition is true
-        buffer = np.zeros_like(volume[1:-1])
+        
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+                       op_flags=['readwrite'],
+                       #op_flags=['read'],
+                       flags=["f_index"],
+                       order="C") as it:
+            for w_P_W, w_P, w_P_E in it:
+                rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
+                # A little bit more concise ;)
+                if (w_P + rhs > self.free_saturation) or (error > 1e-6):
+                    valid = False
+                    self.current_dt /= 2
+                    break
+                if (rhs < 1e-12):
+                    break
+                w_P += rhs
+        return valid
+
+    def update_buffered(self, buffer):
+        """update the control volume.
+
+        calculates one iteration step and updates the control volume.
+        Validity of the update value is checked.
+        """
+
+        volume = self.w_control_volume  # for better format/readability
+        valid = True  # It's valid unless the one break condition is true
+        
         with np.nditer([volume[:-2], volume[1:-1], volume[2:], buffer],
                        op_flags=['readwrite'],
                        #op_flags=['read'],
@@ -292,7 +320,7 @@ class Simulation:
                 buf = rhs
                 #w_P += rhs
         if valid:
-            volume[1:-1] += buffer
+            volume[1:-1] = volume[1:-1] + buffer
         return valid
 
     def simulation_test(self):
@@ -308,6 +336,7 @@ class Simulation:
         self.t = []
         self.w_total = []
         cnt = 0
+        buffer = np.zeros_like(self.w_control_volume[1:-1])
 
         timestep_text = lambda: f"current time step = {self.current_dt:.2e}s"
         with tqdm(
@@ -318,20 +347,21 @@ class Simulation:
                 mininterval=1,
                 unit_scale=1,
                 postfix=timestep_text(),
-                bar_format="{desc}: {n:.2f}s --> {percentage:3.0f}%| "
+                bar_format="{desc}: {n:.2f}h --> {percentage:3.0f}%| "
                 "{bar}| "
-                "{n_fmt}/{total_fmt} [Projected runtime: {elapsed}+{remaining}={total}, ' '{rate_fmt}{postfix}]",
+                "{n_fmt}/{total_fmt} [Projected runtime: {elapsed}<{remaining}, ' '{rate_fmt}{postfix}]",
                 position=0) as progress:
             #[default: '{l_bar}{bar}{r_bar}'], where l_bar='{desc}: {percentage:3.0f}%|' and r_bar='| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, ' '{rate_fmt}{postfix}]' Possible vars: l_bar, bar, r_bar, n, n_fmt, total, total_fmt, percentage, elapsed, elapsed_s, ncols, nrows, desc, unit, rate, rate_fmt, rate_noinv, rate_noinv_fmt, rate_inv, rate_inv_fmt, postfix, unit_divisor, remaining, remaining_s, eta. Note that a trailing ": " is automatically removed after {desc} if the latter is empty.
             while self.current_time < self.total_time:
                 valid = self.update()
+                #valid = self.update_buffered(buffer)
 
                 if valid:
                     if cnt % 100 == 0:
                         self.t.append(self.current_time)
                         self.w_total.append(
                             self.total_moisture_sample(flag="relative"))
-                        plt.show()
+                        #plt.show()
 
                     cnt += 1
                     self.current_time += self.current_dt
@@ -346,11 +376,10 @@ class Simulation:
                 #progress.percentage = percentage if percentage <= 100 else 99
                 progress.n = self.current_time if self.current_time < self.total_time else self.total_time - 1  # * (1 - 5*EPS)
                 progress.update()
-        input()
+        
         print()
-        print("final time step: ", self.current_dt)
-        print("final w = %.3f" % self.total_moisture_sample(flag="relative"),
-              "%")
+        results = self.analyze()
+        self.show_results(results)
 
         self.plot_moisture()
         self.plot_moisture(sqrt_time=True)
@@ -359,16 +388,20 @@ class Simulation:
         """plots the current moisture content in the volume.
         """
         fig = plt.figure(figsize=(8,6))
-        title = f"N = {self.number_of_element}, dt = [{self.dt_init}, {self.current_dt}], initial saturation = {self.initial_moisture_content}%"
+        ax = plt.gca()
+        
 
         if sqrt_time:
             plt.plot(np.sqrt(self.t), self.w_total, label=self.averaging_method)
-            plt.xlabel("time [hours]")
+            plt.xlabel("sqrt(time) [sqrt(hours)]")
+            fig.suptitle("Total moisture content over square root of time", fontsize=16, fontweight='bold') # fontstyle='italic'
         else:
             plt.plot(self.t, self.w_total, label=self.averaging_method)
-            plt.xlabel("sqrt(time) [sqrt(hours)]")
+            plt.xlabel("time [hours]")
+            fig.suptitle("Total moisture content over time", fontsize=16, fontweight='bold')
 
-        plt.title(title)
+        ax_title = f"N = {self.number_of_element}, dt = [{self.dt_init}, {self.current_dt}], initial saturation = {self.initial_moisture_content}%"
+        ax.set_title(ax_title)
         plt.ylabel("saturation [%]")
         plt.legend()
         plt.grid(True)
@@ -377,12 +410,35 @@ class Simulation:
     def analyze(self):
 
         results = {"A": 1}
-        # calculate steigung
-        results["A"] = 2
-        return A
+        
+        k = 0
+        lower_limit = 30
+        upper_limit = 80
+        idx_lower = 0 
+        idx_upper = 0 
+
+        for i, w in enumerate(self.w_total):
+            if w >= lower_limit and not idx_lower:
+                idx_lower = i
+            if w >= upper_limit and idx_lower:
+                idx_upper = i
+                break
+        else:
+            idx_upper = len(self.w_total) - 1 
+
+        k = self.w_total[idx_upper] - self.w_total[idx_lower] / (np.sqrt(self.t[idx_upper]) - np.sqrt(self.t[idx_lower]))
+
+        results["A"] = k
+        return results
 
     def show_results(self, results):
-        print(results)
+        """prints final results.
+        """
+        print("------- SIMULATION DONE  -------")
+        moist = self.total_moisture_sample(flag="relative")
+        print("Final time step: ", self.current_dt)
+        print(f"Final Total Moisture Saturation = {moist:.3f}", "%")
+        print(f"Moisture Uptake Coefficient 'A' = {results['A']:.2f} kg/(m^2 h^0.5)")
 
     def iterate(self):
         self.run()
@@ -463,7 +519,7 @@ class Simulation:
         """
         t = np.arange(0, self.total_time, self.dt_init)
 
-        w = 10 * np.sqrt(t)
+        w = 30 + 10 * np.sqrt(t)
         w_last = w[-1] * np.ones_like(w)
         w = np.append(w, w_last)
         t = np.arange(0, 2 * self.total_time, self.dt_init)
@@ -490,4 +546,18 @@ class Simulation:
 if __name__ == "__main__":
     x = Simulation(SIM_PARAMS_EXAMPLE)
     #x.run_simulation()
-    x.simulation_test()
+    #x.simulation_test()
+    tot = 100
+    t = np.linspace(0, tot/2, int(tot/2/0.01))
+
+    w = 30 + 10 * np.sqrt(t)
+    w_last = w[-1] * np.ones_like(w)
+    w = np.append(w, w_last)
+    t = np.linspace(0, tot, int(tot/0.01))
+
+    x.t = t
+    x.w_total =w
+    x.plot_moisture()
+    x.plot_moisture(True)
+
+    x.show_results(x.analyze())

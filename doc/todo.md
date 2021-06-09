@@ -6,7 +6,6 @@
 
 [] Make plot update non blocking
 
-[] Make plot pretty (Peter)
+[x] Make plot prettier (Peter)
 
 [] Print results pretty
-
