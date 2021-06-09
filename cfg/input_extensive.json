@@ -4,7 +4,11 @@
 		"scale": 1,
 		"dimension": 1
 	},
-	"sampleLength": 0.2,
+	"sampleLength": {
+		"value": 0.2,
+		"scale": 1,
+		"dimension": 1
+	},
 	"moistureUptakeCoefficient": 10.0,
 	"freeSaturation": 300.0,
 	"meanPoreSize": 10e-6,

@@ -274,11 +274,13 @@ class Simulation:
 
         volume = self.w_control_volume  # for better format/readability
         valid = True  # It's valid unless the one break condition is true
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+        buffer = np.zeros_like(volume[1:-1])
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:], buffer],
                        op_flags=['readwrite'],
+                       #op_flags=['read'],
                        flags=["f_index"],
                        order="C") as it:
-            for w_P_W, w_P, w_P_E in it:
+            for w_P_W, w_P, w_P_E, buf in it:
                 rhs, error = self.rk5_new(w_P_W, w_P, w_P_E)
                 # A little bit more concise ;)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):
@@ -287,9 +289,10 @@ class Simulation:
                     break
                 if (rhs < 1e-12):
                     break
-
-                w_P += rhs
-
+                buf = rhs
+                #w_P += rhs
+        if valid:
+            volume[1:-1] += buffer
         return valid
 
     def simulation_test(self):
@@ -328,6 +331,7 @@ class Simulation:
                         self.t.append(self.current_time)
                         self.w_total.append(
                             self.total_moisture_sample(flag="relative"))
+                        plt.show()
 
                     cnt += 1
                     self.current_time += self.current_dt
@@ -349,18 +353,36 @@ class Simulation:
               "%")
 
         self.plot_moisture()
+        self.plot_moisture(sqrt_time=True)
 
-    def plot_moisture(self):
+    def plot_moisture(self, sqrt_time=False):
         """plots the current moisture content in the volume.
         """
+        fig = plt.figure(figsize=(8,6))
         title = f"N = {self.number_of_element}, dt = [{self.dt_init}, {self.current_dt}], initial saturation = {self.initial_moisture_content}%"
 
-        plt.plot(self.t, self.w_total, label=self.averaging_method)
+        if sqrt_time:
+            plt.plot(np.sqrt(self.t), self.w_total, label=self.averaging_method)
+            plt.xlabel("time [hours]")
+        else:
+            plt.plot(self.t, self.w_total, label=self.averaging_method)
+            plt.xlabel("sqrt(time) [sqrt(hours)]")
+
         plt.title(title)
         plt.ylabel("saturation [%]")
-        plt.xlabel("time [hours]")
         plt.legend()
+        plt.grid(True)
         plt.show()
+
+    def analyze(self):
+
+        results = {"A": 1}
+        # calculate steigung
+        results["A"] = 2
+        return A
+
+    def show_results(self, results):
+        print(results)
 
     def iterate(self):
         self.run()

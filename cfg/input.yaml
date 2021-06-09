@@ -1,5 +1,5 @@
 material: brick # comment
-length: 10 # in m # could also be{ value: 10, scale: 1.e+3 } # scale in reference to m
+length: 10 # in m
 sampleLength: 0.2
 moistureUptakeCoefficient: 10.0
 freeSaturation: 300.0
