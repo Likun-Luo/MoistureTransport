@@ -30,7 +30,7 @@ from src.input import DefaultParser, YAMLParser, VALID_FILE_FORMATS
 from src.simulate import Simulation
 #from src.process import *
 
-VERSION = "0.1"
+VERSION = "1.0"
 welcome_text = f"""
 #################################
 # Moisture Transport Simulation #

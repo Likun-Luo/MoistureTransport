@@ -2,8 +2,8 @@
 
 Authors:
 
-    - asdf
-    - asdf2
+    - Luo, Likun
+    - Holzner, Peter
 
 A moisture transport simulation tool.
 

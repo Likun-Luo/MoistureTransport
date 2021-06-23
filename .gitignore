@@ -9,3 +9,7 @@ __pycache__
 # Build files
 main.dist
 main.build
+
+# "Release"
+MoistureTransport*.zip
+MoistureTransport*.7z

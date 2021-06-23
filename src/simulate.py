@@ -22,10 +22,13 @@
 # STL imports
 import math
 import warnings
+from functools import partial
 from os import error
 from time import sleep
 # 3rd party imports
 import numpy as np
+#import jax.numpy as np # TODO: potentially better performance with jax --> try it out!
+#from jax import jit
 import matplotlib.pyplot as plt
 from tqdm import tqdm, trange, TqdmWarning
 # interal imports
@@ -34,6 +37,11 @@ if __name__ == "__main__":
     from process import draw_placeholder, draw_watercontent
 else:
     from .process import draw_placeholder, draw_watercontent
+
+# little numpy vectorize wrapper
+# class vectorize(np.vectorize):
+#     def __get__(self, obj, objtype):
+#         return partial(self.__call__, obj)
 
 warnings.filterwarnings("ignore", category=TqdmWarning)
 
@@ -128,35 +136,6 @@ class Simulation:
                 if (rhs < 1e-12):
                     break
                 w_P += rhs
-        return valid
-
-    def update_buffered(self, buffer) -> bool:
-        """update the control volume. [DEPRECATED]
-
-        calculates one iteration step and updates the control volume.
-        Validity of the update value is checked.
-        """
-
-        volume = self.w_control_volume  # for better format/readability
-        valid = True  # It's valid unless the one break condition is true
-
-        with np.nditer(
-            [volume[:-2], volume[1:-1], volume[2:], buffer],
-                op_flags=['readwrite'],
-                #op_flags=['read'],
-                flags=["f_index"],
-                order="C") as it:
-            for w_P_W, w_P, w_P_E, buf in it:
-                rhs, error = self.rk5(w_P_W, w_P, w_P_E)
-                if (w_P + rhs > self.free_saturation) or (error > 1e-6):
-                    valid = False
-                    self.current_dt /= 2
-                    break
-                if (rhs < 1e-12):
-                    break
-                buf = rhs
-        if valid:
-            volume[1:-1] = volume[1:-1] + buffer
         return valid
 
     def run(self):
@@ -324,8 +303,12 @@ class Simulation:
     # Numerics #
     ############
     # Helper functions for numerical iterations
+    #@jit
+    #@vectorize
     def rk5(self, w_P_W, w_P, w_P_E) -> (float, float):
         """runge kutta 5 method with local error estimation
+
+        Reference: TODO: insert reference
 
         Returns:
             rhs ... update value (x_new = x_old + rhs)
@@ -492,6 +475,63 @@ class Simulation:
             P_suc_W - P_suc_P) / self.dx**2
 
         return dwdt
+    
+    def update2(self) -> bool:
+        """update the control volume. [UNUSED]
+
+        TESTGROUND FOR STUFF LIKE JAX,...
+
+        calculates one iteration step and updates the control volume.
+        Validity of the update value is checked.
+        """
+
+        volume = self.w_control_volume  # for better format/readability
+        valid = True  # It's valid unless the one break condition is true
+
+        w_P_W, w_P, w_P_E = volume[:-2], volume[1:-1], volume[2:]
+
+        rhs, error = self.rk5(w_P_W, w_P, w_P_E)
+        if np.any(w_P + rhs > self.free_saturation) or np.any(error > 1e-6):
+            valid = False
+            self.current_dt /= 2
+            return valid
+        if np.any(rhs < 1e-12):
+            return valid
+        w_P += rhs
+        return valid
+
+    ###########
+    # Update #
+    ###########
+    # Helper functions for update
+    def update_buffered(self, buffer) -> bool:
+        """update the control volume. [DEPRECATED]
+
+        calculates one iteration step and updates the control volume.
+        Validity of the update value is checked.
+        """
+
+        volume = self.w_control_volume  # for better format/readability
+        valid = True  # It's valid unless the one break condition is true
+
+        with np.nditer(
+            [volume[:-2], volume[1:-1], volume[2:], buffer],
+                op_flags=['readwrite'],
+                #op_flags=['read'],
+                flags=["f_index"],
+                order="C") as it:
+            for w_P_W, w_P, w_P_E, buf in it:
+                rhs, error = self.rk5(w_P_W, w_P, w_P_E)
+                if (w_P + rhs > self.free_saturation) or (error > 1e-6):
+                    valid = False
+                    self.current_dt /= 2
+                    break
+                if (rhs < 1e-12):
+                    break
+                buf = rhs
+        if valid:
+            volume[1:-1] = volume[1:-1] + buffer
+        return valid
 
 
 if __name__ == "__main__":
