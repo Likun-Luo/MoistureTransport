@@ -45,7 +45,7 @@ argParser = ArgumentParser(prog=f"MoistureTransport Simulation v{VERSION}",
                            prefix_chars="-")
 
 argParser.add_argument('-y', action="store_true")
-argParser.add_argument('--cfg', nargs="?", default="./cfg/input.json")
+argParser.add_argument('--cfg', nargs="?", default="./cfg/input.yaml")
 argParser.add_argument('--mode',
                        nargs="?",
                        choices=["demo", "uptake"],
@@ -114,15 +114,17 @@ def main():
     cfg = cfgParser()
     print("--> Parameters are valid!")
     print()
-    
+
     ######################
     # --- Simulation --- #
     ######################
     mode = args.mode
     print("------- STARTING SIMULATION -------")
-    sim = Simulation(cfg)
+    sim = Simulation(cfg, RESULTS_DIR)
     print(f"Simulating a time span of:{sim.total_time} ")
 
+    # TODO: Remove "demo"-mode
+    # TODO: move mode-parameter into simulation object
     if mode == "demo":
         print("Drawing starting state")
         sim.draw()
@@ -132,8 +134,13 @@ def main():
         print("Drawing final state")
         #sim.draw()
         sim.draw_watercontent()
+    elif mode == "uptake":
+        sim.run()
     else:
-        sim.simulation_test()
+        # add supported mode values here
+        raise ValueError(
+            f"mode '{mode}' is an invalid value! Supported values [uptake, demo]"
+        )
     print(f"Graphs and simulation report saved at: {RESULTS_DIR}")
 
     return 0

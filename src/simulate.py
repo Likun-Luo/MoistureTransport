@@ -21,18 +21,21 @@
 """
 # STL imports
 import math
+import warnings
 from os import error
 from time import sleep
 # 3rd party imports
 import numpy as np
 import matplotlib.pyplot as plt
-from tqdm import tqdm, trange
+from tqdm import tqdm, trange, TqdmWarning
 # interal imports
-## TODO: Remove before release
 if __name__ == "__main__":
+    # for local testing
     from process import draw_placeholder, draw_watercontent
 else:
     from .process import draw_placeholder, draw_watercontent
+
+warnings.filterwarnings("ignore", category=TqdmWarning)
 
 EPS = np.finfo(float).eps
 
@@ -53,7 +56,7 @@ SIM_PARAMS_EXAMPLE = {
 
 class Simulation:
 
-    def __init__(self, sim_params):
+    def __init__(self, sim_params, results_dir):
         self.moisture_uptake_coefficient = sim_params[
             "moistureUptakeCoefficient"]
         self.length = sim_params["sampleLength"]
@@ -73,6 +76,8 @@ class Simulation:
 
         self.w_control_volume = np.zeros(self.number_of_element + 2)
 
+        self.results_dir = results_dir
+
     def initial_condition(self):
         """parse initial condition to the control volumes
         """
@@ -85,7 +90,7 @@ class Simulation:
                                   self.number_of_element]  # Right hand side
         self.current_dt = self.dt_init
 
-    def w(self, P_suc):
+    def w(self, P_suc) -> float:
         """water retention curve
 
         Parameters:
@@ -100,7 +105,7 @@ class Simulation:
 
         return ret
 
-    def P_suc(self, w):
+    def P_suc(self, w) -> float:
         """Inverse of water retention curve
 
         Parameters:
@@ -117,7 +122,7 @@ class Simulation:
             return (self.free_saturation - w) / (self.pore_size * w)
         raise ValueError(f"Error: {w} division by zero")
 
-    def dw(self, P_suc):
+    def dw(self, P_suc) -> float:
         """Derivative of w(P_suc)
 
         Needed for the calculation of total moisture conductivity K_w
@@ -131,7 +136,7 @@ class Simulation:
         return -self.free_saturation * self.pore_size / (
             self.pore_size * P_suc + 1.0)**2
 
-    def K_w(self, P_suc):
+    def K_w(self, P_suc) -> float:
         """total moisture conductivity Kw
 
         Parameters:
@@ -152,7 +157,7 @@ class Simulation:
 
         return -self.dw(P_suc) * l1 * l2
 
-    def K_interface(self, K_P, K_W):
+    def K_interface(self, K_P, K_W) -> float:
         """calculate the liquid conductivity at the interface between two nodes
 
         Parameters:
@@ -171,10 +176,9 @@ class Simulation:
             return (K_P + K_W) / 2
 
         raise ValueError(
-            f"averaging_method={self.averaging_method} not yet implemented!"
-        )
+            f"averaging_method={self.averaging_method} not yet implemented!")
 
-    def dwdt(self, w_P_C, w_P_W, w_P_E):
+    def dwdt(self, w_P_C, w_P_W, w_P_E) -> float:
         """evaluate the right hand side of the governing equation (time derivative of w_P)
         """
 
@@ -190,8 +194,12 @@ class Simulation:
 
         return dwdt
 
-    def rk5(self, w_P_W, w_P, w_P_E):
+    def rk5(self, w_P_W, w_P, w_P_E) -> (float, float):
         """runge kutta 5 method with local error estimation
+
+        Returns:
+            rhs ... update value (x_new = x_old + rhs)
+            error ... local error approximation
         """
 
         k1 = self.dwdt(w_P, w_P_W, w_P_E)
@@ -214,17 +222,22 @@ class Simulation:
 
         return rhs, error
 
-    def total_moisture_sample(self, flag="absolute"):
+    def total_moisture_sample(self, flag="absolute") -> float:
         """calculate the total moisture of the sample
+
+        Returns:
+            total moisture content ... of sample, as either absolute value (in kg/m^3) OR relative (in %) depending on flag
         """
         w = np.sum(self.dx * self.w_control_volume[1:-1])
 
         if flag == "absolute":
             return w / self.length
-        else:
+        if flag == "relative":
             return 100 * w / (self.free_saturation * self.length)
+        raise ValueError(
+            f"flag={flag} must be either of ['absolute', 'relative']")
 
-    def update(self):
+    def update(self) -> bool:
         """update the control volume.
 
         calculates one iteration step and updates the control volume.
@@ -233,12 +246,13 @@ class Simulation:
 
         volume = self.w_control_volume  # for better format/readability
         valid = True  # It's valid unless the one break condition is true
-        
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
-                       op_flags=['readwrite'],
-                       #op_flags=['read'],
-                       flags=["f_index"],
-                       order="C") as it:
+
+        with np.nditer(
+            [volume[:-2], volume[1:-1], volume[2:]],
+                op_flags=['readwrite'],
+                #op_flags=['read'],
+                flags=["f_index"],
+                order="C") as it:
             for w_P_W, w_P, w_P_E in it:
                 rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 # A little bit more concise ;)
@@ -251,8 +265,8 @@ class Simulation:
                 w_P += rhs
         return valid
 
-    def update_buffered(self, buffer):
-        """update the control volume.
+    def update_buffered(self, buffer) -> bool:
+        """update the control volume. [DEPRECATED]
 
         calculates one iteration step and updates the control volume.
         Validity of the update value is checked.
@@ -260,12 +274,13 @@ class Simulation:
 
         volume = self.w_control_volume  # for better format/readability
         valid = True  # It's valid unless the one break condition is true
-        
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:], buffer],
-                       op_flags=['readwrite'],
-                       #op_flags=['read'],
-                       flags=["f_index"],
-                       order="C") as it:
+
+        with np.nditer(
+            [volume[:-2], volume[1:-1], volume[2:], buffer],
+                op_flags=['readwrite'],
+                #op_flags=['read'],
+                flags=["f_index"],
+                order="C") as it:
             for w_P_W, w_P, w_P_E, buf in it:
                 rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 # A little bit more concise ;)
@@ -281,7 +296,7 @@ class Simulation:
             volume[1:-1] = volume[1:-1] + buffer
         return valid
 
-    def simulation_test(self):
+    def run(self):
         """Run a simulation with adaptive iteration scheme.
         """
         self.initial_condition()
@@ -295,48 +310,29 @@ class Simulation:
         self.w_total = []
         self.w_absolute = []
         cnt = 0
-        #buffer = np.zeros_like(self.w_control_volume[1:-1])
+        # buffer = np.zeros_like(self.w_control_volume[1:-1])
 
-        timestep_text = lambda: f"current time step = {self.current_dt:.2e}s"
-        with tqdm(
-                desc="Time: ",
-                total=self.total_time,
-                unit="it",
-                ncols=150,
-                mininterval=1,
-                unit_scale=1,
-                postfix=timestep_text(),
-                bar_format="{desc}: {n:.2f}h --> {percentage:3.0f}%| "
-                "{bar}| "
-                "{n_fmt}/{total_fmt} [Projected runtime: {elapsed}<{remaining}, ' '{rate_fmt}{postfix}]",
-                position=0) as progress:
+        with self.setup_progessbar() as progessbar:
             #[default: '{l_bar}{bar}{r_bar}'], where l_bar='{desc}: {percentage:3.0f}%|' and r_bar='| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, ' '{rate_fmt}{postfix}]' Possible vars: l_bar, bar, r_bar, n, n_fmt, total, total_fmt, percentage, elapsed, elapsed_s, ncols, nrows, desc, unit, rate, rate_fmt, rate_noinv, rate_noinv_fmt, rate_inv, rate_inv_fmt, postfix, unit_divisor, remaining, remaining_s, eta. Note that a trailing ": " is automatically removed after {desc} if the latter is empty.
             while self.current_time < self.total_time:
                 valid = self.update()
-                #valid = self.update_buffered(buffer)
+                # valid = self.update_buffered(buffer)
+
+                self.update_progessbar(progessbar)
 
                 if valid:
                     if cnt % 100 == 0:
                         self.t.append(self.current_time)
                         self.w_total.append(
                             self.total_moisture_sample(flag="relative"))
-                        self.w_absolute.append(self.total_moisture_sample(flag="absolute"))
+                        self.w_absolute.append(
+                            self.total_moisture_sample(flag="absolute"))
                         #plt.show()
 
                     cnt += 1
                     self.current_time += self.current_dt
                     self.current_dt *= 2
 
-                # Progress output
-                #percentage = self.current_time / self.total_time * 100
-                # print(
-                #     f"Progress: {self.current_time:.2f} / {self.total_time:d} ({percentage:3.0f}%), current time step: {self.current_dt:.2e} s",
-                #     end="\r")
-                progress.postfix = timestep_text()
-                #progress.percentage = percentage if percentage <= 100 else 99
-                progress.n = self.current_time if self.current_time < self.total_time else self.total_time - 1  # * (1 - 5*EPS)
-                progress.update()
-        
         #print()
         results = self.analyze()
         self.show_results(results)
@@ -344,39 +340,119 @@ class Simulation:
         self.plot_moisture()
         self.plot_moisture(sqrt_time=True)
 
+    def setup_progessbar(self):
+        """sets up a tqdm progess bar.
+
+        The current formating results in the following output:
+        Simulated time: : 10.00h/10.0h --> 100%| █████████████████████████████████▉| [Projected runtime: 00:14<00:00, 1.41s/it, current time step = 1.68e-03s]
+
+        Returns:
+            tqdm_bar ... tqdm progess bar object with defined format
+            timestep_text
+        """
+
+        post = {"dt": self.format_time(self.dt_init)}
+        tqdm_bar = tqdm(
+            desc="Simulated time: ",
+            total=self.total_time,
+            unit="it",
+            ncols=150,
+            mininterval=2,
+            miniters=0,
+            unit_scale=1,
+            postfix=post,
+            bar_format="{desc}: {n:.2f}h/{total_fmt}h --> {percentage:3.0f}%| "
+            "{bar}| "
+            "[Projected runtime: {elapsed}<{remaining}, {rate_fmt}{postfix}]",
+            position=0)
+        #{postfix[pre]}{postfix[value]}{postfix[unit]}
+        return tqdm_bar
+
+    def update_progessbar(self, progessbar):
+        """updates a given progessbar (tqdm-object).
+        """
+        progessbar.set_postfix(dt=self.format_time(self.current_dt),
+                               refresh=False)
+        progessbar.update(self.current_time - progessbar.n)
+
+    @staticmethod
+    def format_time(time_in_s) -> str:
+        """formats time (given in seconds) as appropriate.
+
+        Formats the given time (in seconds) to an appropiate (=nice looking, easily readable) format and appends a unit suffix.
+        Currently, the following time units are supported: 
+            [d, h, m, s, ms, µs, fs] <--> 
+            [days, hours, minutes, seconds, miliseconds, microsseconds, femtoseconds] 
+
+        Returns:
+            time_str ... time formatted to size followed by unit suffix
+        """
+        if time_in_s > 86399.5:
+            return f'{time_in_s/86400:2.1f}' + "d"
+        if time_in_s > 3599.5:
+            return f'{time_in_s/3600:2.1f}' + "h"
+        if time_in_s > 59.5:
+            return f'{time_in_s/60:2.1f}' + "m"
+        multiplier = 1000
+        for unit in ("s", "ms", "µs", "fs"):
+            if time_in_s > 0.995:
+                if time_in_s > 9.95:
+                    if time_in_s > 99.5:
+                        return f'{time_in_s:3.0f}' + unit
+                    return f'{time_in_s:2.1f}' + unit
+                return f'{time_in_s:1.2f}' + unit
+            time_in_s *= multiplier
+        return f'{time_in_s:3.3f}'
+
     def plot_moisture(self, sqrt_time=False):
         """plots the current moisture content in the volume.
+
+        TODO: add options to format output (FORMAT_PARAM -> png, pdf, svg, ...)
         """
-        fig = plt.figure(figsize=(8,6))
+        time_type = "sqrt(t)" if sqrt_time else "t"
+        fig = plt.figure(figsize=(8, 6))
         ax = plt.gca()
-        
+
         if sqrt_time:
-            plt.plot(np.sqrt(self.t), self.w_absolute, label=self.averaging_method)
-            plt.xlabel("sqrt(time) [sqrt(hours)]")
+            plt.plot(np.sqrt(self.t),
+                     self.w_absolute,
+                     label=self.averaging_method)
+            plt.xlabel(f"sqrt(time) [sqrt(hours)]")
             plt.ylabel("total moisture content [kg/m³]")
-            fig.suptitle("Total moisture content over square root of time", fontsize=16, fontweight='bold') # fontstyle='italic'
+            fig.suptitle("Total moisture content over square root of time",
+                         fontsize=16,
+                         fontweight='bold')  # fontstyle='italic'
         else:
             plt.plot(self.t, self.w_total, label=self.averaging_method)
             plt.xlabel("time [hours]")
             plt.ylabel("saturation [%]")
-            fig.suptitle("Total saturation over time", fontsize=16, fontweight='bold')
+            fig.suptitle("Total saturation over time",
+                         fontsize=16,
+                         fontweight='bold')
 
         ax_title = f"N = {self.number_of_element}, dt = [{self.dt_init}, {self.current_dt}], initial saturation = {self.initial_moisture_content}%"
         ax.set_title(ax_title)
-        
+
         plt.legend()
         plt.grid(True)
+        save_format = "png"
+        plt.savefig(
+            f"{self.results_dir}/final_moisture_content_{time_type}.{save_format}",
+            dpi=200)
         plt.show()
 
-    def analyze(self):
+    def analyze(self) -> dict:
+        """
+
+        """
 
         results = {"A": 1}
-        
+
         k = 0
         lower_limit = 0.2 * self.free_saturation * self.length
         upper_limit = 0.8 * self.free_saturation * self.length
-        idx_lower = 0 
-        idx_upper = 0 
+        idx_lower = 0
+        idx_upper = 0
 
         for i, w in enumerate(self.w_absolute):
             if w >= lower_limit and not idx_lower:
@@ -385,9 +461,11 @@ class Simulation:
                 idx_upper = i
                 break
         else:
-            idx_upper = len(self.w_total) - 1 
+            idx_upper = len(self.w_total) - 1
 
-        k = (self.w_absolute[idx_upper] - self.w_absolute[idx_lower]) * self.length / (np.sqrt(self.t[idx_upper]) - np.sqrt(self.t[idx_lower]))
+        k = (self.w_absolute[idx_upper] -
+             self.w_absolute[idx_lower]) * self.length / (
+                 np.sqrt(self.t[idx_upper]) - np.sqrt(self.t[idx_lower]))
 
         results["A"] = k
         return results
@@ -396,15 +474,20 @@ class Simulation:
         """prints final results.
         """
         print("------- SIMULATION DONE  -------")
-        moist = self.total_moisture_sample(flag="relative")
-        print("Final time step: ", self.current_dt)
-        print(f"Final Total Moisture Saturation = {moist:.3f}", "%")
-        print(f"Moisture Uptake Coefficient 'A' = {results['A']:.2f} kg/(m^2 h^0.5)")
+        final_moisture = self.total_moisture_sample(flag="absolute")
+        final_moisture_relative = self.total_moisture_sample(flag="relative")
+        print("Final time step: ", self.format_time(self.current_dt))
+        print(
+            f"Final Total Moisture Saturation = {final_moisture:3.2f}kg/m^3 ({final_moisture_relative:3.2f}%)"
+        )
+        print(
+            f"Moisture Uptake Coefficient 'A' = {results['A']:.2f} kg/(m^2 h^0.5)"
+        )
 
 
 if __name__ == "__main__":
     x = Simulation(SIM_PARAMS_EXAMPLE)
-    x.simulation_test()
+    x.run()
     # tot = 100
     # t = np.linspace(0, tot/2, int(tot/2/0.01))
 

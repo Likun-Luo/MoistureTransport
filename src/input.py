@@ -31,11 +31,15 @@ from numpy import inf
 VALID_FILE_FORMATS = [".json", ".yaml", ".cfg"]
 number = [int, float]
 
+# TODO: add support for other materials such as cement
+SUPPORTED_MATERIALS = ("brick")
+SUPPORTED_AVERAGING = ["linear", "harmonic"]
+
 
 @dataclass
 class SettingsSchema:
     # base material and geometry
-    material: tuple = (str, ["brick", "cement", "wood"])  # 1
+    material: tuple = (str, SUPPORTED_MATERIALS)  # 1
     sampleLength: tuple = (number, [1e-2, 1])  # in m, min=1cm  # 2
     moistureUptakeCoefficient: tuple = (number, [1e-1, 1000])  # 3
     freeSaturation: tuple = (number, [1, 1e6])  # 4
@@ -48,7 +52,7 @@ class SettingsSchema:
     timeStepSize: tuple = (number, [1e-6, 1])  # 9
     totalTime: tuple = (number, [1e-1, 1 * 24 * 3600])  # 10
     # seconds, 3600s = 1h
-    averagingMethod: tuple = (str, ["linear", "harmonic"])  # 11
+    averagingMethod: tuple = (str, SUPPORTED_AVERAGING)  # 11
     # number of settings
     NUM_PARAMETERS: tuple = (int, [11, 11])
 
@@ -63,9 +67,12 @@ class SettingsSchema:
 
 @dataclass
 class BaseParser:
-    """BaseParser.
+    """The BaseParser that performs input validation on a parsed configuration.
 
-    describe
+    Here, the input validation is performed on a parsed configuration object (dict). The basic reading and parsing from an input file is realized in child classes (see: JSONParser, YAMLParser), but the parse() - interface is specified here.
+    Additional file formats, or custom file parsers, can simply be generated via inheritance.
+
+    Alternatively, since the validation method 'validateCFG(cfg:dict)' is implemented as a staticmethod, it can also be invoked without instantiating a Parser. In this way, it can be used to validate any python dictionary with the Schema above.
     """
     path: Union[str, pathlib.Path]
 
@@ -74,6 +81,8 @@ class BaseParser:
             self.path = pathlib.Path(self.path).absolute()
 
     def __call__(self, validate=True):
+        """starts the parsing of the given file.
+        """
         if validate:
             return self.validateCFG(self.parse())
         #print("Input validation is turned off.")
@@ -83,7 +92,7 @@ class BaseParser:
         raise NotImplementedError("parse method not implemented!")
 
     @staticmethod
-    def validateCFG(cfg):
+    def validateCFG(cfg: dict) -> dict:
         """validates a configuratione.
 
         Performs various checks on the cfg-object (python dictionary) based on the serialized json-file. Mainly, this involves checking whether the input is of valid format, size and also performs out of bounds checks.
@@ -159,6 +168,9 @@ class YAMLParser(BaseParser):
         return cfg
 
 
+# Set a default parser via alias
+DefaultParser = YAMLParser
+
 if __name__ == "__main__":
     TEST_INPUT = {
         "material": "brick",
@@ -190,5 +202,3 @@ if __name__ == "__main__":
         print("YAMLParser: [SUCCESS]")
     else:
         print("YAMLParser: [FAILURE]")
-
-DefaultParser = JSONParser

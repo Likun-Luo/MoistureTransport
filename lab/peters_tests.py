@@ -70,3 +70,53 @@ for idx in range(1, len(volume) -1):
     # print(idx)
     volume[idx] += (volume[idx+1] - volume[idx-1]) / 2
 # %%
+def format_time_scientific(num):
+    if time_in_s>86399.5:
+        return f'{time_in_s/86400:2.1f}'+ "d"
+    if time_in_s>3599.5:
+        return f'{time_in_s/3600:2.1f}'+ "h"
+    if time_in_s>59.5:
+        return f'{time_in_s/60:2.1f}'+ "m"
+    multiplier = 1000
+    for unit in ("s", "ms","µs", "fs"):
+        if time_in_s > 0.995:
+            if time_in_s > 9.95:
+                if time_in_s > 99.5:
+                    return f'{time_in_s:3.0f}'+ unit
+                return f'{time_in_s:2.1f}'+ unit
+            return f'{time_in_s:1.2f}'+ unit
+        time_in_s *= multiplier
+    return f'{time_in_s:3.3f}'
+
+
+# %%
+print(format_time_scientific(3601))
+print(format_time_scientific(3599))
+print(format_time_scientific(61))
+print(format_time_scientific(59))
+print(format_time_scientific(3))
+print(format_time_scientific(0.901))
+print(format_time_scientific(0.09))
+print(format_time_scientific(0.009))
+print(format_time_scientific(0.0009))
+print(format_time_scientific(0.00009))
+print(format_time_scientific(0.000009))
+# %%
+24*3600
+# %%
+from dataclasses import dataclass
+# %%
+@dataclass
+class Test:
+    a:int = 1
+
+    @staticmethod
+    def give(b):
+        return b
+# %%
+test = Test(3)
+# %%
+test.give(test.a)
+# %%
+Test.give(3)
+# %%
