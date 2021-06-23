@@ -327,6 +327,10 @@ class Simulation:
     def rk5(self, w_P_W, w_P, w_P_E) -> (float, float):
         """runge kutta 5 method with local error estimation
 
+        reference:
+
+        Schwarz 1993, Numerische Mathematik: 388-389
+
         Returns:
             rhs ... update value (x_new = x_old + rhs)
             error ... local error approximation
