@@ -50,6 +50,7 @@ argParser.add_argument('--mode',
                        nargs="?",
                        choices=["demo", "uptake"],
                        default="uptake")
+# Add other simulation modes, such as 'drying', 'uptake+drying', ... once they are implemented!
 
 
 def main():
@@ -126,6 +127,7 @@ def main():
     # TODO: Remove "demo"-mode
     # TODO: move mode-parameter into simulation object
     if mode == "demo":
+        print("### NOTE: An actual simulation will NOT be performed since you selected 'demo' mode. This serves only to present the sequence of a simulation!")
         print("Drawing starting state")
         sim.draw()
 
@@ -135,6 +137,8 @@ def main():
         #sim.draw()
         sim.draw_watercontent()
     elif mode == "uptake":
+        print("Drawing starting state")
+        sim.draw()
         sim.run()
     else:
         # add supported mode values here

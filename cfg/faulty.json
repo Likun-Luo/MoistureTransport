@@ -1,5 +1,5 @@
 {
-	"material": "brick",
+	"material": "wood",
 	"sampleLength": 0.2,
 	"moistureUptakeCoefficient": 10.0,
 	"freeSaturation": 300.0,
