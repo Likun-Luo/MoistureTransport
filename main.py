@@ -21,7 +21,9 @@ The main program file
 """
 # STL imports
 from argparse import ArgumentParser
+from inspect import getframeinfo, currentframe
 from pathlib import Path
+from sys import exit
 # 3rd party imports
 
 # interal imports
@@ -30,6 +32,11 @@ from src.input import DefaultParser, YAMLParser, VALID_FILE_FORMATS
 from src.simulate import Simulation
 #from src.process import *
 
+#WORK_DIR = module_path(lambda:0) #pathlib.Path(filename).absolute().parent
+#WORK_DIR = WORK_DIR.parent
+print("WORK_DIR: ", WORK_DIR)
+# 
+#exit(0)
 VERSION = "1.0"
 welcome_text = f"""
 #################################
@@ -45,7 +52,7 @@ argParser = ArgumentParser(prog=f"MoistureTransport Simulation v{VERSION}",
                            prefix_chars="-")
 
 argParser.add_argument('-y', action="store_true")
-argParser.add_argument('--cfg', nargs="?", default="./cfg/input.yaml")
+argParser.add_argument('--cfg', nargs="?", default="cfg/input.yaml")
 argParser.add_argument('--mode',
                        nargs="?",
                        choices=["demo", "uptake"],
@@ -62,7 +69,7 @@ def main():
     ######################
 
     # Prompt for cfg file
-    cfg_file_path = Path(args.cfg)
+    cfg_file_path = WORK_DIR / args.cfg #Path(args.cfg)
     if not cfg_file_path.is_file():
         print(
             f"Provided file '{cfg_file_path}' isn't a file or can't be found!")

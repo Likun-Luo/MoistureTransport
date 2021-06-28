@@ -1,0 +1,13 @@
+{
+	"material": "brick",
+	"sampleLength": 0.2,
+	"moistureUptakeCoefficient": 10.0,
+	"freeSaturation": 300.0,
+	"meanPoreSize": 10e-3,
+	"freeParameter": 10,
+	"numberofElements": 30,
+	"timeStepSize": 0.0005,
+	"totalTime": 10,
+	"Anfangsfeuchte": 10,
+	"averagingMethod": "linear"
+}

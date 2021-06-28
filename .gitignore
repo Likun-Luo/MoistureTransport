@@ -13,3 +13,4 @@ main.build
 # "Release"
 MoistureTransport*.zip
 MoistureTransport*.7z
+release/moisture_transport
