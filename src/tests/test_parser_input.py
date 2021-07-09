@@ -1,4 +1,13 @@
-# %%
+"""Tests for the Parser module, specifically the SettingsSchema.
+
+We tried to generate as many different faulty inputs as possible:
+- use the wrong type of input for a field (str for a number field, etc.)
+- give out of bounds input (too large numbers, etc.)
+
+If you can think of ways the input can be faulty, try to figure out a way to detect them and then test your detection here via a unit test!
+
+NOTE: We did not yet implement any custom Exceptions, though it would definitely be advisable moving forward!
+"""
 import numpy as np
 from IPython.core.display import display
 from pathlib import Path
@@ -6,7 +15,7 @@ from src.input import JSONParser, SettingsSchema, number
 
 PROJECT_ROOT = Path.cwd()
 TEST_FILE = PROJECT_ROOT / "cfg" / "input.json"
-# %%
+
 schema = SettingsSchema()
 VIABLE_FIELD_TYPES = [str, int, float]
 

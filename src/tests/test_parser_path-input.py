@@ -1,4 +1,9 @@
-from src.input import JSONParser
+"""Tests for path parsing.
+
+Different types of paths
+"""
+
+rom src.input import JSONParser
 from pathlib import Path
 
 # TODO: centralize this

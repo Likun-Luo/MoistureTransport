@@ -2,6 +2,7 @@ Pipfile
 Pipfile.lock
 .hidden
 .vscode
+.old
 
 __pycache__
 .pytest_cache
