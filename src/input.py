@@ -22,22 +22,32 @@
 import json
 import pathlib
 from dataclasses import dataclass, field, asdict
-from typing import Union
+from typing import Union, Iterator
 # 3rd party imports
 import yaml
 from numpy import inf
 # interal imports
 
-VALID_FILE_FORMATS = [".json", ".yaml", ".cfg"]
+VALID_FILE_FORMATS:tuple = (".json", ".yaml", ".cfg")
 number = [int, float]
 
 # TODO: add support for other materials such as cement
-SUPPORTED_MATERIALS = ("brick")
-SUPPORTED_AVERAGING = ["linear", "harmonic"]
+SUPPORTED_MATERIALS:tuple = tuple("brick")
+SUPPORTED_AVERAGING:tuple= ("linear", "harmonic")
 
 
 @dataclass
 class SettingsSchema:
+    """Schema for available settings
+
+    Small schema for validation of input parameters for the simulation.
+    Performs type and out-of-bounds checks.
+
+    Each Parameter is specified via a tuple of following format:
+    (type, bounds) ... where type is a type like 'str', 'number = int or float' (more can be added), and 'bounds' is either a list of options (for strings) or [min, max]-bounds for numbers.
+
+    Expend or refactor as needed!
+    """
     # base material and geometry
     material: tuple = (str, SUPPORTED_MATERIALS)  # 1
     sampleLength: tuple = (number, [1e-2, 1])  # in m, min=1cm  # 2
@@ -56,12 +66,13 @@ class SettingsSchema:
     # number of settings
     NUM_PARAMETERS: tuple = (int, [11, 11])
 
-    def __iter__(self):
+    def __iter__(self) -> Iterator[str]:
+        """returns key of attr dict"""
         dicte = asdict(self)
         #print(dicte)
         return iter(dicte)
 
-    def __getitem__(self, item):
+    def __getitem__(self, item:str) -> tuple:
         return self.__getattribute__(item)
 
 
@@ -76,11 +87,11 @@ class BaseParser:
     """
     path: Union[str, pathlib.Path]
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         if isinstance(self.path, str):
             self.path = pathlib.Path(self.path).absolute()
 
-    def __call__(self, validate=True):
+    def __call__(self, validate=True) -> dict:
         """starts the parsing of the given file.
         """
         if validate:
@@ -88,7 +99,7 @@ class BaseParser:
         #print("Input validation is turned off.")
         return self.parse()
 
-    def parse(self):
+    def parse(self) -> dict:
         raise NotImplementedError("parse method not implemented!")
 
     @staticmethod
@@ -150,7 +161,7 @@ class JSONParser(BaseParser):
     The JSONParser takes an input file (path to file) in json format and attempts to parse. While parsing it validates the given parameters, check for completeness of parameters and performs various out-of-bounds checks.
     """
 
-    def parse(self):
+    def parse(self) -> dict:
         with open(self.path, "r") as file:
             cfg = json.load(file)
         return cfg
@@ -162,7 +173,7 @@ class YAMLParser(BaseParser):
     The YAMLParser takes an input file (path to file) in YAML format and attempts to parse. While parsing it validates the given parameters, check for completeness of parameters and performs various out-of-bounds checks.
     """
 
-    def parse(self):
+    def parse(self) -> dict:
         with open(self.path, "r") as file:
             cfg = yaml.full_load(file)
         return cfg
@@ -194,8 +205,8 @@ if __name__ == "__main__":
     else:
         print("[JSONParser: FAILURE]")
 
-    parser = YAMLParser("./cfg/input.yaml")
-    cfg = parser(validate=True)
+    yparser = YAMLParser("./cfg/input.yaml")
+    cfg = yparser(validate=True)
     print("Parsed input is: ")
     print(cfg)
     if cfg == TEST_INPUT:

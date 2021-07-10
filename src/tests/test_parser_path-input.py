@@ -1,9 +1,9 @@
 """Tests for path parsing.
 
-Different types of paths
+Different types of path entries are tested (absolute, relative in string or pathlib.Path form)
 """
 
-rom src.input import JSONParser
+from src.input import JSONParser
 from pathlib import Path
 
 # TODO: centralize this

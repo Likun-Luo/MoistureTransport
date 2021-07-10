@@ -25,18 +25,13 @@ import warnings
 from functools import partial
 from os import error
 from time import sleep
+from typing import Tuple
 # 3rd party imports
 import numpy as np
 #import jax.numpy as np # TODO: potentially better performance with jax --> try it out!
 #from jax import jit
-import matplotlib.pyplot as plt
-from tqdm import tqdm, trange, TqdmWarning
-# interal imports
-if __name__ == "__main__":
-    # for local testing
-    from process import draw_placeholder, draw_watercontent
-else:
-    from .process import draw_placeholder, draw_watercontent
+import matplotlib.pyplot as plt # type: ignore
+from tqdm import tqdm, trange, TqdmWarning # type: ignore
 
 # little numpy vectorize wrapper
 # class vectorize(np.vectorize):
@@ -47,7 +42,7 @@ warnings.filterwarnings("ignore", category=TqdmWarning)
 
 EPS = np.finfo(float).eps
 
-SIM_PARAMS_EXAMPLE = {
+SIM_PARAMS_EXAMPLE:dict = {
     "material": "brick",
     "sampleLength": 0.2,
     "moistureUptakeCoefficient": 10.0,
@@ -64,7 +59,7 @@ SIM_PARAMS_EXAMPLE = {
 
 class Simulation:
 
-    def __init__(self, sim_params, results_dir):
+    def __init__(self, sim_params:dict, results_dir:str):
         self.moisture_uptake_coefficient = sim_params[
             "moistureUptakeCoefficient"]
         self.length = sim_params["sampleLength"]
@@ -86,7 +81,7 @@ class Simulation:
 
         self.results_dir = results_dir
 
-    def initial_condition(self):
+    def initial_condition(self) -> None:
         """parse initial condition to the control volumes
         """
 
@@ -98,7 +93,7 @@ class Simulation:
                                   self.number_of_element]  # Right hand side
         self.current_dt = self.dt_init
 
-    def total_moisture_sample(self, flag="absolute") -> float:
+    def total_moisture_sample(self, flag:str="absolute") -> float:
         """calculate the total moisture of the sample
 
         Returns:
@@ -123,10 +118,10 @@ class Simulation:
         volume = self.w_control_volume  # for better format/readability
         valid = True  # It's valid unless the one break condition is true
 
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:]], 
                        op_flags=['readwrite'],
                        flags=["f_index"],
-                       order="C") as it:
+                       order="C") as it: # type: ignore
             for w_P_W, w_P, w_P_E in it:
                 rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):
@@ -138,7 +133,7 @@ class Simulation:
                 w_P += rhs
         return valid
 
-    def run(self):
+    def run(self) -> None:
         """Run a simulation with adaptive iteration scheme.
         """
         self.initial_condition()
@@ -184,7 +179,7 @@ class Simulation:
     # Output #
     ##########
     # Methods that show simulation output (console or matplotlib window)
-    def plot_moisture(self, sqrt_time=False):
+    def plot_moisture(self, sqrt_time=False) -> None:
         """plots the current moisture content in the volume.
 
         TODO: add options to format output (FORMAT_PARAM -> png, pdf, svg, ...)
@@ -221,7 +216,7 @@ class Simulation:
             dpi=200)
         plt.show()
 
-    def show_results(self, results):
+    def show_results(self, results:dict) -> None:
         """prints final results.
         """
         print("------- SIMULATION DONE  -------")
@@ -235,7 +230,7 @@ class Simulation:
             f"Moisture Uptake Coefficient 'A' = {results['A']:.2f} kg/(m^2 h^0.5)"
         )
 
-    def setup_progessbar(self):
+    def setup_progessbar(self) -> tqdm:
         """sets up a tqdm progess bar.
 
         The current formating results in the following output:
@@ -263,7 +258,7 @@ class Simulation:
         #{postfix[pre]}{postfix[value]}{postfix[unit]}
         return tqdm_bar
 
-    def update_progessbar(self, progessbar):
+    def update_progessbar(self, progessbar:tqdm) -> None:
         """updates a given progessbar (tqdm-object).
         """
         progessbar.set_postfix(dt=self.format_time(self.current_dt),
@@ -271,7 +266,7 @@ class Simulation:
         progessbar.update(self.current_time - progessbar.n)
 
     @staticmethod
-    def format_time(time_in_s) -> str:
+    def format_time(time_in_s:float) -> str:
         """formats time (given in seconds) as appropriate.
 
         Formats the given time (in seconds) to an appropiate (=nice looking, easily readable) format and appends a unit suffix.
@@ -303,9 +298,8 @@ class Simulation:
     # Numerics #
     ############
     # Helper functions for numerical iterations
-    #@jit
-    #@vectorize
-    def rk5(self, w_P_W, w_P, w_P_E) -> (float, float):
+
+    def rk5(self, w_P_W : float, w_P:float, w_P_E:float) -> Tuple[float, float]:
         """runge kutta 5 method with local error estimation
 
         References:
@@ -373,7 +367,7 @@ class Simulation:
     # Physics #
     ###########
     # Helper functions for certain physical values
-    def w(self, P_suc) -> float:
+    def w(self, P_suc:float) -> float:
         """water retention curve
 
         Parameters:
@@ -388,7 +382,7 @@ class Simulation:
 
         return ret
 
-    def P_suc(self, w) -> float:
+    def P_suc(self, w:float) -> float:
         """Inverse of water retention curve
 
         Parameters:
@@ -405,7 +399,7 @@ class Simulation:
             return (self.free_saturation - w) / (self.pore_size * w)
         raise ValueError(f"Error: {w} division by zero")
 
-    def dw(self, P_suc) -> float:
+    def dw(self, P_suc:float) -> float:
         """Derivative of w(P_suc)
 
         Needed for the calculation of total moisture conductivity K_w
@@ -419,7 +413,7 @@ class Simulation:
         return -self.free_saturation * self.pore_size / (
             self.pore_size * P_suc + 1.0)**2
 
-    def K_w(self, P_suc) -> float:
+    def K_w(self, P_suc:float) -> float:
         """total moisture conductivity Kw
 
         Parameters:
@@ -428,7 +422,6 @@ class Simulation:
         Returns:
             K_w ... total moisture conductivity Kw
 
-        TODO: Wrap with np.vectorize? (https://numpy.org/doc/stable/reference/generated/numpy.vectorize.html)
         """
 
         const = (self.w(P_suc) /
@@ -440,7 +433,7 @@ class Simulation:
 
         return -self.dw(P_suc) * l1 * l2
 
-    def K_interface(self, K_P, K_W) -> float:
+    def K_interface(self, K_P:float, K_W:float) -> float:
         """calculate the liquid conductivity at the interface between two nodes
 
         Parameters:
@@ -461,7 +454,7 @@ class Simulation:
         raise ValueError(
             f"averaging_method={self.averaging_method} not yet implemented!")
 
-    def dwdt(self, w_P_C, w_P_W, w_P_E) -> float:
+    def dwdt(self, w_P_C:float, w_P_W:float, w_P_E:float) -> float:
         """evaluate the right hand side of the governing equation (time derivative of w_P)
         """
 
@@ -478,7 +471,7 @@ class Simulation:
         return dwdt
     
     def update2(self) -> bool:
-        """update the control volume. [UNUSED]
+        """update the control volume. [DEPRECATED]
 
         TESTGROUND FOR STUFF LIKE JAX,...
 
@@ -516,11 +509,11 @@ class Simulation:
         valid = True  # It's valid unless the one break condition is true
 
         with np.nditer(
-            [volume[:-2], volume[1:-1], volume[2:], buffer],
+            [volume[:-2], volume[1:-1], volume[2:], buffer], 
                 op_flags=['readwrite'],
                 #op_flags=['read'],
                 flags=["f_index"],
-                order="C") as it:
+                order="C") as it: # type: ignore
             for w_P_W, w_P, w_P_E, buf in it:
                 rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):
@@ -536,7 +529,7 @@ class Simulation:
 
 
 if __name__ == "__main__":
-    x = Simulation(SIM_PARAMS_EXAMPLE)
+    x = Simulation(SIM_PARAMS_EXAMPLE, '.tmp')
     x.run()
     # tot = 100
     # t = np.linspace(0, tot/2, int(tot/2/0.01))
