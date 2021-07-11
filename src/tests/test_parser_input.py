@@ -33,7 +33,7 @@ DEFAULT_CFG = {
 }
 
 
-def manipulate_param(parameters:dict, to_change:str, value:Any):
+def manipulate_param(parameters: dict, to_change: str, value: Any):
     """copies the parameters dict and changes a parameter.
     """
     assert to_change in parameters
@@ -42,7 +42,7 @@ def manipulate_param(parameters:dict, to_change:str, value:Any):
     return new
 
 
-def generate_faulty_types(parameters:dict, key:str, test:bool=False):
+def generate_faulty_types(parameters: dict, key: str, test: bool = False):
     correct_types = []
 
     if isinstance(schema[key][0], list) or isinstance(schema[key][0], tuple):
@@ -57,7 +57,10 @@ def generate_faulty_types(parameters:dict, key:str, test:bool=False):
     return incorrect_types
 
 
-def generate_faulty_range_input(parameters, key:str, value:Any=None, test:bool=False):
+def generate_faulty_range_input(parameters,
+                                key: str,
+                                value: Any = None,
+                                test: bool = False):
     ftype = schema[key][0]
     frange = schema[key][1]
     if ftype == number or ftype in number:
@@ -87,7 +90,7 @@ def generate_faulty_range_input(parameters, key:str, value:Any=None, test:bool=F
 
 def demo_generator_outputs():
     if 'display' not in locals():
-        from IPython.core.display import display # type: ignore
+        from IPython.core.display import display  # type: ignore
     print("Testing generate_faulty_types(...):")
     display(generate_faulty_types(1, "material", test=True))
     display(generate_faulty_types(1, "sampleLength", test=True))
@@ -96,7 +99,6 @@ def demo_generator_outputs():
     display(generate_faulty_range_input(1, "material", test=True))
     display(generate_faulty_range_input(1, "sampleLength", test=True))
     display(generate_faulty_range_input(1, "numberofElements", test=True))
-
 
 
 def test_with_default_params(capsys):

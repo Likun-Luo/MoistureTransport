@@ -75,6 +75,7 @@ echo $RELEASE_DIR
 mkdir -pv $RELEASE_DIR
 mkdir -pv $RELEASE_DIR/results
 
-cp $DIST_DIR/$PROGRAM $RELEASE_DIR/.
+mv $DIST_DIR/$PROGRAM $RELEASE_DIR/.
 cp -r cfg $RELEASE_DIR/cfg
 cp README.md $RELEASE_DIR/.
+cp doc/how-to.md $RELEASE_DIR/.

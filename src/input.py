@@ -28,12 +28,13 @@ import yaml
 from numpy import inf
 # interal imports
 
-VALID_FILE_FORMATS:tuple = (".json", ".yaml", ".cfg")
+VALID_FILE_FORMATS: tuple = (".json", ".yaml", ".cfg")
 number = [int, float]
 
 # TODO: add support for other materials such as cement
-SUPPORTED_MATERIALS:tuple = ("brick", "brick") # brick is twice because mypy complains otherwise
-SUPPORTED_AVERAGING:tuple= ("linear", "harmonic")
+SUPPORTED_MATERIALS: tuple = (
+    "brick", "brick")  # brick is twice because mypy complains otherwise
+SUPPORTED_AVERAGING: tuple = ("linear", "harmonic")
 
 
 @dataclass
@@ -72,7 +73,7 @@ class SettingsSchema:
         #print(dicte)
         return iter(dicte)
 
-    def __getitem__(self, item:str) -> tuple:
+    def __getitem__(self, item: str) -> tuple:
         return self.__getattribute__(item)
 
 

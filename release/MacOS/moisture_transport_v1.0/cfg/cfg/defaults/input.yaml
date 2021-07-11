@@ -1,0 +1,10 @@
+material: brick # 1 of [brick]
+sampleLength: 0.2 # [m]
+moistureUptakeCoefficient: 10.0 # [kg/(m^2*h^0.5)]
+freeSaturation: 300.0 # [kg/m^3]
+meanPoreSize: 1.e-2 # [m]
+freeParameter: 10
+Anfangsfeuchte: 10 # [%]
+totalTime: 10 # [h]
+numberofElements: 10 # number of finite elements used
+averagingMethod: "linear" # 1 of [linear]

@@ -9,6 +9,7 @@ from pathlib import Path
 project_root = Path.cwd()
 true_test_file = project_root / "cfg" / "defaults" / "input.json"
 
+
 def test_absolute_path_input(capsys):
     print("Test: Input/absolute path input ", end="")
     test_input = project_root / "cfg" / "defaults" / "input.json"

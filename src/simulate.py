@@ -30,8 +30,8 @@ from typing import Tuple
 import numpy as np
 #import jax.numpy as np # TODO: potentially better performance with jax --> try it out!
 #from jax import jit
-import matplotlib.pyplot as plt # type: ignore
-from tqdm import tqdm, trange, TqdmWarning # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+from tqdm import tqdm, trange, TqdmWarning  # type: ignore
 
 # little numpy vectorize wrapper
 # class vectorize(np.vectorize):
@@ -42,7 +42,7 @@ warnings.filterwarnings("ignore", category=TqdmWarning)
 
 EPS = np.finfo(float).eps
 
-SIM_PARAMS_EXAMPLE:dict = {
+SIM_PARAMS_EXAMPLE: dict = {
     "material": "brick",
     "sampleLength": 0.2,
     "moistureUptakeCoefficient": 10.0,
@@ -59,7 +59,7 @@ SIM_PARAMS_EXAMPLE:dict = {
 
 class Simulation:
 
-    def __init__(self, sim_params:dict, results_dir:str):
+    def __init__(self, sim_params: dict, results_dir: str):
         self.moisture_uptake_coefficient = sim_params[
             "moistureUptakeCoefficient"]
         self.length = sim_params["sampleLength"]
@@ -93,7 +93,7 @@ class Simulation:
                                   self.number_of_element]  # Right hand side
         self.current_dt = self.dt_init
 
-    def total_moisture_sample(self, flag:str="absolute") -> float:
+    def total_moisture_sample(self, flag: str = "absolute") -> float:
         """calculate the total moisture of the sample
 
         Returns:
@@ -118,10 +118,10 @@ class Simulation:
         volume = self.w_control_volume  # for better format/readability
         valid = True  # It's valid unless the one break condition is true
 
-        with np.nditer([volume[:-2], volume[1:-1], volume[2:]], 
+        with np.nditer([volume[:-2], volume[1:-1], volume[2:]],
                        op_flags=['readwrite'],
                        flags=["f_index"],
-                       order="C") as it: # type: ignore
+                       order="C") as it:  # type: ignore
             for w_P_W, w_P, w_P_E in it:
                 rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):
@@ -216,7 +216,7 @@ class Simulation:
             dpi=200)
         plt.show()
 
-    def show_results(self, results:dict) -> None:
+    def show_results(self, results: dict) -> None:
         """prints final results.
         """
         print("------- SIMULATION DONE  -------")
@@ -258,7 +258,7 @@ class Simulation:
         #{postfix[pre]}{postfix[value]}{postfix[unit]}
         return tqdm_bar
 
-    def update_progessbar(self, progessbar:tqdm) -> None:
+    def update_progessbar(self, progessbar: tqdm) -> None:
         """updates a given progessbar (tqdm-object).
         """
         progessbar.set_postfix(dt=self.format_time(self.current_dt),
@@ -266,7 +266,7 @@ class Simulation:
         progessbar.update(self.current_time - progessbar.n)
 
     @staticmethod
-    def format_time(time_in_s:float) -> str:
+    def format_time(time_in_s: float) -> str:
         """formats time (given in seconds) as appropriate.
 
         Formats the given time (in seconds) to an appropiate (=nice looking, easily readable) format and appends a unit suffix.
@@ -299,7 +299,8 @@ class Simulation:
     ############
     # Helper functions for numerical iterations
 
-    def rk5(self, w_P_W : float, w_P:float, w_P_E:float) -> Tuple[float, float]:
+    def rk5(self, w_P_W: float, w_P: float,
+            w_P_E: float) -> Tuple[float, float]:
         """runge kutta 5 method with local error estimation
 
         References:
@@ -367,7 +368,7 @@ class Simulation:
     # Physics #
     ###########
     # Helper functions for certain physical values
-    def w(self, P_suc:float) -> float:
+    def w(self, P_suc: float) -> float:
         """water retention curve
 
         Parameters:
@@ -382,7 +383,7 @@ class Simulation:
 
         return ret
 
-    def P_suc(self, w:float) -> float:
+    def P_suc(self, w: float) -> float:
         """Inverse of water retention curve
 
         Parameters:
@@ -399,7 +400,7 @@ class Simulation:
             return (self.free_saturation - w) / (self.pore_size * w)
         raise ValueError(f"Error: {w} division by zero")
 
-    def dw(self, P_suc:float) -> float:
+    def dw(self, P_suc: float) -> float:
         """Derivative of w(P_suc)
 
         Needed for the calculation of total moisture conductivity K_w
@@ -413,7 +414,7 @@ class Simulation:
         return -self.free_saturation * self.pore_size / (
             self.pore_size * P_suc + 1.0)**2
 
-    def K_w(self, P_suc:float) -> float:
+    def K_w(self, P_suc: float) -> float:
         """total moisture conductivity Kw
 
         Parameters:
@@ -433,7 +434,7 @@ class Simulation:
 
         return -self.dw(P_suc) * l1 * l2
 
-    def K_interface(self, K_P:float, K_W:float) -> float:
+    def K_interface(self, K_P: float, K_W: float) -> float:
         """calculate the liquid conductivity at the interface between two nodes
 
         Parameters:
@@ -454,7 +455,7 @@ class Simulation:
         raise ValueError(
             f"averaging_method={self.averaging_method} not yet implemented!")
 
-    def dwdt(self, w_P_C:float, w_P_W:float, w_P_E:float) -> float:
+    def dwdt(self, w_P_C: float, w_P_W: float, w_P_E: float) -> float:
         """evaluate the right hand side of the governing equation (time derivative of w_P)
         """
 
@@ -469,7 +470,7 @@ class Simulation:
             P_suc_W - P_suc_P) / self.dx**2
 
         return dwdt
-    
+
     def update2(self) -> bool:
         """update the control volume. [DEPRECATED]
 
@@ -509,11 +510,11 @@ class Simulation:
         valid = True  # It's valid unless the one break condition is true
 
         with np.nditer(
-            [volume[:-2], volume[1:-1], volume[2:], buffer], 
+            [volume[:-2], volume[1:-1], volume[2:], buffer],
                 op_flags=['readwrite'],
                 #op_flags=['read'],
                 flags=["f_index"],
-                order="C") as it: # type: ignore
+                order="C") as it:  # type: ignore
             for w_P_W, w_P, w_P_E, buf in it:
                 rhs, error = self.rk5(w_P_W, w_P, w_P_E)
                 if (w_P + rhs > self.free_saturation) or (error > 1e-6):

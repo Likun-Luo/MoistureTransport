@@ -35,7 +35,7 @@ from src.simulate import Simulation
 #WORK_DIR = module_path(lambda:0) #pathlib.Path(filename).absolute().parent
 #WORK_DIR = WORK_DIR.parent
 print("WORK_DIR: ", WORK_DIR)
-# 
+#
 #exit(0)
 VERSION = "1.0"
 welcome_text = f"""
@@ -69,7 +69,7 @@ def main():
     ######################
 
     # Prompt for cfg file
-    cfg_file_path = WORK_DIR / args.cfg #Path(args.cfg)
+    cfg_file_path = WORK_DIR / args.cfg  #Path(args.cfg)
     if not cfg_file_path.is_file():
         print(
             f"Provided file '{cfg_file_path}' isn't a file or can't be found!")
@@ -131,21 +131,9 @@ def main():
     sim = Simulation(cfg, RESULTS_DIR)
     print(f"Simulating a time span of:{sim.total_time} ")
 
-    # TODO: Remove "demo"-mode
-    # TODO: move mode-parameter into simulation object
-    if mode == "demo":
-        print("### NOTE: An actual simulation will NOT be performed since you selected 'demo' mode. This serves only to present the sequence of a simulation!")
-        print("Drawing starting state")
-        sim.draw()
-
-        sim.demo()
-
-        print("Drawing final state")
-        #sim.draw()
-        sim.draw_watercontent()
-    elif mode == "uptake":
-        print("Drawing starting state")
-        sim.draw()
+    if mode == "uptake":
+        # print("Drawing starting state")
+        # sim.draw()
         sim.run()
     else:
         # add supported mode values here

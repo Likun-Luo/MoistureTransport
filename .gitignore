@@ -4,8 +4,11 @@ Pipfile.lock
 .vscode
 .old
 
+# caches
 __pycache__
 .pytest_cache
+.mypy_cache
+*cache
 
 # Build files
 main.dist
