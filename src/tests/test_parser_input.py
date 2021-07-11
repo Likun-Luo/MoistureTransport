@@ -9,12 +9,12 @@ If you can think of ways the input can be faulty, try to figure out a way to det
 NOTE: We did not yet implement any custom Exceptions, though it would definitely be advisable moving forward!
 """
 import numpy as np
-from IPython.core.display import display
 from pathlib import Path
+from typing import Any
 from src.input import JSONParser, SettingsSchema, number
 
 PROJECT_ROOT = Path.cwd()
-TEST_FILE = PROJECT_ROOT / "cfg" / "input.json"
+TEST_FILE = PROJECT_ROOT / "cfg" / "defaults" / "input.json"
 
 schema = SettingsSchema()
 VIABLE_FIELD_TYPES = [str, int, float]
@@ -24,17 +24,16 @@ DEFAULT_CFG = {
     "sampleLength": 0.2,
     "moistureUptakeCoefficient": 10.0,
     "freeSaturation": 300.0,
-    "meanPoreSize": 10e-6,
+    "meanPoreSize": 1e-2,
     "freeParameter": 10,
-    "numberofElements": 100,
-    "timeStepSize": 0.01,
+    "Anfangsfeuchte": 10,
     "totalTime": 10,
-    "Anfangsfeuchte": 40,
+    "numberofElements": 10,
     "averagingMethod": "linear"
 }
 
 
-def manipulate_param(parameters, to_change, value):
+def manipulate_param(parameters:dict, to_change:str, value:Any):
     """copies the parameters dict and changes a parameter.
     """
     assert to_change in parameters
@@ -43,7 +42,7 @@ def manipulate_param(parameters, to_change, value):
     return new
 
 
-def generate_faulty_types(parameters, key, test=False):
+def generate_faulty_types(parameters:dict, key:str, test:bool=False):
     correct_types = []
 
     if isinstance(schema[key][0], list) or isinstance(schema[key][0], tuple):
@@ -58,7 +57,7 @@ def generate_faulty_types(parameters, key, test=False):
     return incorrect_types
 
 
-def generate_faulty_range_input(parameters, key, value=None, test=False):
+def generate_faulty_range_input(parameters, key:str, value:Any=None, test:bool=False):
     ftype = schema[key][0]
     frange = schema[key][1]
     if ftype == number or ftype in number:
@@ -87,6 +86,8 @@ def generate_faulty_range_input(parameters, key, value=None, test=False):
 
 
 def demo_generator_outputs():
+    if 'display' not in locals():
+        from IPython.core.display import display # type: ignore
     print("Testing generate_faulty_types(...):")
     display(generate_faulty_types(1, "material", test=True))
     display(generate_faulty_types(1, "sampleLength", test=True))
@@ -97,11 +98,7 @@ def demo_generator_outputs():
     display(generate_faulty_range_input(1, "numberofElements", test=True))
 
 
-# %%
-demo_generator_outputs()
 
-
-# %%
 def test_with_default_params(capsys):
     """tests parser with (correct) default input.
     """
@@ -111,10 +108,8 @@ def test_with_default_params(capsys):
     cfg = parser(validate=True)
     #print("Parsed input is: ")
     #print(cfg)
-    if cfg == DEFAULT_CFG:
-        print("[SUCCESS]")
-    else:
-        print("[FAILURE]")
+    assert cfg == DEFAULT_CFG
+    print("[SUCCESS]")
 
 
 def test_with_faulty_parameter_types(capsys):
@@ -147,7 +142,7 @@ def test_with_faulty_parameter_types(capsys):
                     f"No TypeErrors were raised --> Validation should've detected errors!"
                 )
             except TypeError as e:
-                # We check for type error --> raised TypeError == Okay!
+                # We check for type errors --> raised TypeError == Okay!
                 # This is the expected behavior.
                 # with capsys.disabled():
                 #     print(e)
@@ -156,6 +151,5 @@ def test_with_faulty_parameter_types(capsys):
                 raise ValueError(
                     f"Error '{e}' shouldn't appear here --> only TypeErrors are acceptable here!"
                 )
-    #print("Parsed input is: ")
-    #print(cfg)
+
     print("[SUCCESS]")

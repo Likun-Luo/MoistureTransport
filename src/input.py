@@ -32,7 +32,7 @@ VALID_FILE_FORMATS:tuple = (".json", ".yaml", ".cfg")
 number = [int, float]
 
 # TODO: add support for other materials such as cement
-SUPPORTED_MATERIALS:tuple = tuple("brick")
+SUPPORTED_MATERIALS:tuple = ("brick", "brick") # brick is twice because mypy complains otherwise
 SUPPORTED_AVERAGING:tuple= ("linear", "harmonic")
 
 
@@ -59,12 +59,12 @@ class SettingsSchema:
     Anfangsfeuchte: tuple = (number, [1e-2, 1000])  # 7
     # simulation parameters
     numberofElements: tuple = (int, [1, 1e3])  # 8
-    timeStepSize: tuple = (number, [1e-6, 1])  # 9
+    # timeStepSize: tuple = (number, [1e-6, 1])  # 9
     totalTime: tuple = (number, [1e-1, 1 * 24 * 3600])  # 10
     # seconds, 3600s = 1h
     averagingMethod: tuple = (str, SUPPORTED_AVERAGING)  # 11
     # number of settings
-    NUM_PARAMETERS: tuple = (int, [11, 11])
+    NUM_PARAMETERS: tuple = (int, [10, 11])
 
     def __iter__(self) -> Iterator[str]:
         """returns key of attr dict"""

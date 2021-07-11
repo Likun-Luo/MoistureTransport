@@ -3,9 +3,9 @@
 	"sampleLength": 0.2,
 	"moistureUptakeCoefficient": 10.0,
 	"freeSaturation": 300.0,
-	"meanPoreSize": 10e-3,
+	"meanPoreSize": 1e-2,
 	"freeParameter": 10,
-	"numberofElements": 30,
+	"numberofElements": 10,
 	"totalTime": 10,
 	"Anfangsfeuchte": 10,
 	"averagingMethod": "linear"
